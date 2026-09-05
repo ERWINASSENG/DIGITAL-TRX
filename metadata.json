@@ -1,0 +1,6 @@
+{
+  "name": "Transmex Auth & Users",
+  "description": "Système d'authentification et de gestion des utilisateurs avec contrôle d'accès RBAC pour Transmex.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

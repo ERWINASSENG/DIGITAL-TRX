@@ -1,0 +1,53 @@
+// Styles spécifiques au module Caisse Transimex
+// Conforme au design épuré, minimaliste et fidèle à la maquette
+
+.cashier-page {
+  font-family: inherit;
+
+  table {
+    th {
+      font-weight: 600;
+      letter-spacing: 0.01em;
+    }
+
+    td {
+      vertical-align: middle;
+    }
+  }
+
+  // Checkbox stylisée discrète
+  input[type="checkbox"] {
+    accent-color: #2563eb;
+    transition: transform 0.15s ease;
+
+    &:active {
+      transform: scale(0.92);
+    }
+  }
+
+  // Micro-animations sur les boutons de pagination
+  #cashier-prev-page-btn,
+  #cashier-next-page-btn {
+    transition: all 0.2s ease-in-out;
+    &:not(:disabled):hover {
+      transform: scale(1.1);
+    }
+  }
+
+  // Animation d'ouverture modale
+  dialog,
+  [role="dialog"] > div {
+    animation: cashierModalFadeIn 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  }
+}
+
+@keyframes cashierModalFadeIn {
+  from {
+    opacity: 0;
+    transform: scale(0.96) translateY(-8px);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+}

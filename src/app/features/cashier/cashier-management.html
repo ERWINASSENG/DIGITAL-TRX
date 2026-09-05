@@ -1,0 +1,467 @@
+<div class="cashier-page min-h-screen bg-slate-50/70 p-4 sm:p-6 lg:p-8">
+  <div class="max-w-7xl mx-auto space-y-6">
+
+    <!-- LIGNE 1 : Barre supérieure (Recherche avec icône filtre à gauche, Actions & Pagination à droite) -->
+    <header class="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-4">
+      <!-- Recherche & Filtre intégré -->
+      <div class="relative w-full sm:w-80 md:w-96">
+        <div class="relative flex items-center">
+          <mat-icon class="absolute left-3 text-slate-400 text-lg w-5 h-5 flex items-center justify-center">search</mat-icon>
+          <input
+            id="cashier-search-input"
+            type="text"
+            [formControl]="searchControl"
+            placeholder="Search"
+            class="w-full pl-10 pr-10 py-2 text-sm bg-white border border-slate-200 rounded-lg shadow-sm text-slate-700 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all"
+          />
+          <button
+            id="cashier-filter-toggle-btn"
+            type="button"
+            (click)="toggleFilterDropdown()"
+            title="Filtrer les transactions"
+            aria-label="Filtrer"
+            class="absolute right-2 p-1 text-slate-400 hover:text-slate-600 rounded transition-colors cursor-pointer"
+          >
+            <mat-icon class="text-lg w-5 h-5 flex items-center justify-center">filter_list</mat-icon>
+          </button>
+        </div>
+
+        <!-- Menu déroulant pour le filtre -->
+        @if (isFilterDropdownOpen()) {
+          <div
+            id="cashier-filter-dropdown"
+            class="absolute left-0 mt-1 w-48 bg-white border border-slate-200 rounded-lg shadow-lg z-20 py-1 text-sm text-slate-700"
+          >
+            <button
+              type="button"
+              (click)="applyCategoryFilter('all')"
+              class="w-full text-left px-4 py-2 hover:bg-slate-50 flex items-center justify-between cursor-pointer"
+              [class.font-semibold]="filterState().categoryFilter === 'all'"
+            >
+              <span>Tous les flux</span>
+              @if (filterState().categoryFilter === 'all') {
+                <mat-icon class="text-sm text-blue-600">check</mat-icon>
+              }
+            </button>
+            <button
+              type="button"
+              (click)="applyCategoryFilter('entree')"
+              class="w-full text-left px-4 py-2 hover:bg-slate-50 flex items-center justify-between text-emerald-600 cursor-pointer"
+              [class.font-semibold]="filterState().categoryFilter === 'entree'"
+            >
+              <span>Entrées (Crédit)</span>
+              @if (filterState().categoryFilter === 'entree') {
+                <mat-icon class="text-sm text-emerald-600">check</mat-icon>
+              }
+            </button>
+            <button
+              type="button"
+              (click)="applyCategoryFilter('sortie')"
+              class="w-full text-left px-4 py-2 hover:bg-slate-50 flex items-center justify-between text-rose-600 cursor-pointer"
+              [class.font-semibold]="filterState().categoryFilter === 'sortie'"
+            >
+              <span>Sorties (Débit)</span>
+              @if (filterState().categoryFilter === 'sortie') {
+                <mat-icon class="text-sm text-rose-600">check</mat-icon>
+              }
+            </button>
+          </div>
+        }
+      </div>
+
+      <!-- Actions de sélection & Pagination compacte ("01-02 / 02  <  >") -->
+      <div class="flex items-center self-end sm:self-auto gap-3 text-sm font-semibold text-slate-800">
+        @if (selectedCount() > 0) {
+          <button
+            id="cashier-delete-selected-btn"
+            type="button"
+            (click)="deleteSelectedTransactions()"
+            [disabled]="isDeleting()"
+            class="inline-flex items-center gap-1 px-3 py-1.5 bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 rounded-lg text-xs font-medium transition-all cursor-pointer disabled:opacity-50"
+          >
+            <mat-icon class="text-xs w-4 h-4">delete</mat-icon>
+            <span>Supprimer ({{ selectedCount() }})</span>
+          </button>
+        }
+
+        <button
+          id="cashier-refresh-btn"
+          type="button"
+          (click)="refresh()"
+          [disabled]="isLoading()"
+          title="Actualiser les données"
+          aria-label="Actualiser"
+          class="p-1 text-slate-400 hover:text-slate-700 rounded transition-colors cursor-pointer disabled:opacity-40"
+        >
+          <mat-icon class="text-base w-5 h-5 flex items-center justify-center" [class.animate-spin]="isLoading()">refresh</mat-icon>
+        </button>
+
+        <span id="cashier-pagination-counter" class="tracking-wide select-none">
+          {{ paginationLabel() }}
+        </span>
+        <div class="flex items-center gap-1">
+          <button
+            id="cashier-prev-page-btn"
+            type="button"
+            (click)="prevPage()"
+            [disabled]="!canPrevPage()"
+            aria-label="Page précédente"
+            class="p-1 text-slate-500 hover:text-slate-900 disabled:opacity-30 disabled:hover:text-slate-500 rounded transition-colors cursor-pointer"
+          >
+            <mat-icon class="text-base w-5 h-5 flex items-center justify-center">chevron_left</mat-icon>
+          </button>
+          <button
+            id="cashier-next-page-btn"
+            type="button"
+            (click)="nextPage()"
+            [disabled]="!canNextPage()"
+            aria-label="Page suivante"
+            class="p-1 text-slate-500 hover:text-slate-900 disabled:opacity-30 disabled:hover:text-slate-500 rounded transition-colors cursor-pointer"
+          >
+            <mat-icon class="text-base w-5 h-5 flex items-center justify-center">chevron_right</mat-icon>
+          </button>
+        </div>
+      </div>
+    </header>
+
+    <!-- Message d'erreur éventuel sur la page -->
+    @if (error() && !isModalOpen()) {
+      <div class="p-3.5 bg-rose-50 border border-rose-200 rounded-xl text-xs sm:text-sm text-rose-700 flex items-center justify-between shadow-xs">
+        <div class="flex items-center gap-2">
+          <mat-icon class="text-rose-600 text-sm">warning</mat-icon>
+          <span>{{ error() }}</span>
+        </div>
+        <button
+          type="button"
+          (click)="refresh()"
+          class="underline font-semibold hover:text-rose-900 cursor-pointer ml-2"
+        >
+          Réessayer
+        </button>
+      </div>
+    }
+
+    <!-- LIGNE 2 : Bouton "Nouveau" à gauche et "Solde Actuelle" avec montant vert à droite -->
+    <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 pt-1 pb-1">
+      <!-- Bouton Nouveau -->
+      <button
+        id="cashier-new-btn"
+        type="button"
+        (click)="openNewModal()"
+        class="inline-flex items-center justify-center px-6 py-2.5 bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white text-sm font-medium rounded-lg shadow-sm transition-all focus:outline-none focus:ring-2 focus:ring-blue-500/50 cursor-pointer"
+      >
+        Nouveau
+      </button>
+
+      <!-- Solde Actuelle (Libellé noir + Grand chiffre vert gras) -->
+      <div class="flex items-center gap-4 self-end sm:self-auto">
+        <span class="text-slate-900 font-bold text-base sm:text-lg">
+          Solde Actuelle
+        </span>
+        <span
+          id="cashier-current-balance"
+          class="text-emerald-700 font-bold text-xl sm:text-2xl tracking-tight"
+        >
+          {{ formatSolde(currentBalance()) }}
+        </span>
+      </div>
+    </div>
+
+    <!-- TABLEAU DE CAISSE (9 Colonnes conformes : Check, Date, Libelle, Type de Transaction, First name, Employe, QTE, Montant, Soldes) -->
+    <div class="bg-white rounded-xl shadow-sm border border-slate-200/80 overflow-hidden">
+      <div class="overflow-x-auto">
+        <table class="w-full text-left text-xs sm:text-sm border-collapse">
+          <thead>
+            <tr class="border-b border-slate-200/80 text-slate-500 font-semibold select-none bg-slate-50/40">
+              <th scope="col" class="py-4 px-4 w-12 text-center">
+                <button
+                  type="button"
+                  (click)="onToggleSelectAll()"
+                  class="font-semibold text-slate-500 hover:text-slate-800 cursor-pointer"
+                  title="Tout sélectionner / désélectionner"
+                >
+                  Check
+                </button>
+              </th>
+              <th scope="col" class="py-4 px-4 font-semibold text-slate-500 whitespace-nowrap">Date</th>
+              <th scope="col" class="py-4 px-4 font-semibold text-slate-500">Libelle</th>
+              <th scope="col" class="py-4 px-4 font-semibold text-slate-500">
+                <div class="inline-flex items-center gap-1 cursor-pointer group">
+                  <span>Type de Transaction</span>
+                  <mat-icon class="text-xs w-4 h-4 flex items-center justify-center text-slate-400 group-hover:text-slate-600">filter_list</mat-icon>
+                </div>
+              </th>
+              <th scope="col" class="py-4 px-4 font-semibold text-slate-500 whitespace-nowrap">First name</th>
+              <th scope="col" class="py-4 px-4 font-semibold text-slate-500">
+                <div class="inline-flex items-center gap-1 cursor-pointer group">
+                  <span>Employe</span>
+                  <mat-icon class="text-xs w-4 h-4 flex items-center justify-center text-slate-400 group-hover:text-slate-600">filter_list</mat-icon>
+                </div>
+              </th>
+              <th scope="col" class="py-4 px-4 font-semibold text-slate-500 text-center whitespace-nowrap">QTE</th>
+              <th scope="col" class="py-4 px-4 font-semibold text-slate-500 text-right whitespace-nowrap">Montant</th>
+              <th scope="col" class="py-4 px-4 font-semibold text-slate-500 text-right whitespace-nowrap">Soldes</th>
+            </tr>
+          </thead>
+          <tbody class="divide-y divide-slate-100">
+            @if (isLoading() && pagedTransactions().length === 0) {
+              <tr>
+                <td colspan="9" class="py-12 text-center text-slate-400 text-sm">
+                  <div class="inline-flex items-center gap-2">
+                    <mat-icon class="animate-spin text-blue-600 text-lg">refresh</mat-icon>
+                    <span>Chargement des transactions depuis la base de données...</span>
+                  </div>
+                </td>
+              </tr>
+            } @else {
+              @for (tx of pagedTransactions(); track trackByTxId($index, tx)) {
+                <tr class="hover:bg-slate-50/60 transition-colors group">
+                  <td class="py-5 px-4 text-center">
+                    <input
+                      type="checkbox"
+                      [checked]="tx.selected"
+                      (change)="onToggleSelect(tx)"
+                      aria-label="Sélectionner la transaction"
+                      class="w-4 h-4 text-blue-600 rounded border-slate-300 focus:ring-blue-500 cursor-pointer"
+                    />
+                  </td>
+                  <td class="py-5 px-4 whitespace-nowrap text-slate-700 font-medium">{{ tx.date }}</td>
+                  <td class="py-5 px-4 text-slate-800 font-medium whitespace-nowrap">{{ tx.libelle }}</td>
+                  <td class="py-5 px-4">
+                    <div class="flex flex-col">
+                      <span class="text-slate-800 font-medium">{{ tx.typeTransaction }}</span>
+                      @if (tx.typeDescription) {
+                        <span class="text-xs text-slate-400 mt-0.5">{{ tx.typeDescription }}</span>
+                      }
+                    </div>
+                  </td>
+                  <td class="py-5 px-4 whitespace-nowrap text-slate-700">{{ tx.firstName }}</td>
+                  <td class="py-5 px-4 whitespace-nowrap text-slate-500">{{ tx.employee || '—' }}</td>
+                  <td class="py-5 px-4 text-center text-slate-500 whitespace-nowrap">
+                    {{ tx.quantity !== undefined ? tx.quantity : '' }}
+                  </td>
+                  <td class="py-5 px-4 text-right whitespace-nowrap font-medium">
+                    @if (tx.montant < 0) {
+                      <span class="text-rose-500">{{ formatCurrency(tx.montant) }}</span>
+                    } @else {
+                      <span class="text-slate-800">{{ formatCurrency(tx.montant) }}</span>
+                    }
+                  </td>
+                  <td class="py-5 px-4 text-right whitespace-nowrap font-medium text-slate-800">
+                    {{ tx.soldeApres !== undefined ? formatCurrency(tx.soldeApres) : '—' }}
+                  </td>
+                </tr>
+              } @empty {
+                <tr>
+                  <td colspan="9" class="py-12 text-center text-slate-400 text-sm">
+                    Aucune transaction dans la base de données. Cliquez sur <strong>Nouveau</strong> pour enregistrer la première opération.
+                  </td>
+                </tr>
+              }
+            }
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<!-- MODALE D'AJOUT D'UNE NOUVELLE TRANSACTION ("Nouveau") -->
+@if (isModalOpen()) {
+  <div
+    class="fixed inset-0 z-50 overflow-y-auto bg-slate-900/50 backdrop-blur-xs flex items-center justify-center p-4"
+    role="dialog"
+    aria-modal="true"
+    aria-labelledby="modal-title"
+  >
+    <div class="bg-white rounded-2xl shadow-xl border border-slate-200 max-w-lg w-full p-6 space-y-5 transition-all">
+      <!-- En-tête modale -->
+      <div class="flex items-center justify-between border-b border-slate-100 pb-3">
+        <h3 id="modal-title" class="text-lg font-bold text-slate-900">
+          Nouvelle Transaction de Caisse
+        </h3>
+        <button
+          type="button"
+          (click)="closeModal()"
+          aria-label="Fermer"
+          class="text-slate-400 hover:text-slate-600 rounded-lg p-1 transition-colors cursor-pointer"
+        >
+          <mat-icon class="w-5 h-5 flex items-center justify-center">close</mat-icon>
+        </button>
+      </div>
+
+      <!-- Erreur spécifique dans la modale si échec -->
+      @if (error()) {
+        <div class="p-3 bg-rose-50 border border-rose-200 rounded-lg text-xs text-rose-700 flex items-start gap-2">
+          <mat-icon class="text-rose-600 text-sm shrink-0 mt-0.5">error_outline</mat-icon>
+          <div>
+            <p class="font-semibold">Erreur Supabase :</p>
+            <p>{{ error() }}</p>
+          </div>
+        </div>
+      }
+
+      <!-- Formulaire -->
+      <form [formGroup]="transactionForm" (ngSubmit)="submitTransaction()" class="space-y-4">
+        <!-- Type d'opération (Crédit / Débit) -->
+        <div>
+          <span class="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1.5">
+            Type d'opération
+          </span>
+          <div class="grid grid-cols-2 gap-3">
+            <button
+              type="button"
+              (click)="transactionForm.patchValue({ category: 'sortie' })"
+              class="py-2 px-3 text-sm font-medium rounded-lg border text-center transition-all cursor-pointer"
+              [class.bg-rose-50]="transactionForm.get('category')?.value === 'sortie'"
+              [class.border-rose-300]="transactionForm.get('category')?.value === 'sortie'"
+              [class.text-rose-700]="transactionForm.get('category')?.value === 'sortie'"
+              [class.border-slate-200]="transactionForm.get('category')?.value !== 'sortie'"
+              [class.text-slate-600]="transactionForm.get('category')?.value !== 'sortie'"
+            >
+              Sortie (Débit -)
+            </button>
+            <button
+              type="button"
+              (click)="transactionForm.patchValue({ category: 'entree' })"
+              class="py-2 px-3 text-sm font-medium rounded-lg border text-center transition-all cursor-pointer"
+              [class.bg-emerald-50]="transactionForm.get('category')?.value === 'entree'"
+              [class.border-emerald-300]="transactionForm.get('category')?.value === 'entree'"
+              [class.text-emerald-700]="transactionForm.get('category')?.value === 'entree'"
+              [class.border-slate-200]="transactionForm.get('category')?.value !== 'entree'"
+              [class.text-slate-600]="transactionForm.get('category')?.value !== 'entree'"
+            >
+              Entrée (Crédit +)
+            </button>
+          </div>
+        </div>
+
+        <!-- Libellé -->
+        <div>
+          <label for="input-libelle" class="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1">
+            Libellé *
+          </label>
+          <input
+            id="input-libelle"
+            type="text"
+            formControlName="libelle"
+            placeholder="Ex: Carburant, Frais de route..."
+            class="w-full px-3 py-2 text-sm bg-white border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
+          />
+          @if (transactionForm.get('libelle')?.touched && transactionForm.get('libelle')?.invalid) {
+            <p class="text-xs text-rose-500 mt-1">Le libellé est obligatoire (min 2 caractères).</p>
+          }
+        </div>
+
+        <!-- Montant & Quantité -->
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <div>
+            <label for="input-montant" class="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1">
+              Montant (FCFA) *
+            </label>
+            <input
+              id="input-montant"
+              type="number"
+              formControlName="montant"
+              placeholder="Ex: 45000"
+              class="w-full px-3 py-2 text-sm bg-white border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
+            />
+            @if (transactionForm.get('montant')?.touched && transactionForm.get('montant')?.invalid) {
+              <p class="text-xs text-rose-500 mt-1">Montant requis supérieur à 0.</p>
+            }
+          </div>
+          <div>
+            <label for="input-qte" class="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1">
+              Quantité (QTE)
+            </label>
+            <input
+              id="input-qte"
+              type="number"
+              formControlName="quantity"
+              placeholder="Facultatif"
+              class="w-full px-3 py-2 text-sm bg-white border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
+            />
+          </div>
+        </div>
+
+        <!-- Prénom (First name) & Employé -->
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <div>
+            <label for="input-firstname" class="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1">
+              Prénom (First name) *
+            </label>
+            <input
+              id="input-firstname"
+              type="text"
+              formControlName="firstName"
+              placeholder="Ex: Nathan, Jose..."
+              class="w-full px-3 py-2 text-sm bg-white border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
+            />
+            @if (transactionForm.get('firstName')?.touched && transactionForm.get('firstName')?.invalid) {
+              <p class="text-xs text-rose-500 mt-1">Le prénom est requis.</p>
+            }
+          </div>
+          <div>
+            <label for="input-employee" class="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1">
+              Employé (Bénéficiaire)
+            </label>
+            <input
+              id="input-employee"
+              type="text"
+              formControlName="employee"
+              placeholder="Facultatif"
+              class="w-full px-3 py-2 text-sm bg-white border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
+            />
+          </div>
+        </div>
+
+        <!-- Type de transaction et description -->
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <div>
+            <label for="input-type" class="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1">
+              Type de transaction *
+            </label>
+            <input
+              id="input-type"
+              type="text"
+              formControlName="typeTransaction"
+              placeholder="Ex: Opération de caisse"
+              class="w-full px-3 py-2 text-sm bg-white border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
+            />
+          </div>
+          <div>
+            <label for="input-typedesc" class="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1">
+              Sous-titre / Détail
+            </label>
+            <input
+              id="input-typedesc"
+              type="text"
+              formControlName="typeDescription"
+              placeholder="Ex: Frais kilométriques"
+              class="w-full px-3 py-2 text-sm bg-white border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
+            />
+          </div>
+        </div>
+
+        <!-- Boutons d'action modale -->
+        <div class="flex items-center justify-end gap-3 pt-3 border-t border-slate-100">
+          <button
+            type="button"
+            (click)="closeModal()"
+            class="px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-100 rounded-lg transition-colors cursor-pointer"
+          >
+            Annuler
+          </button>
+          <button
+            type="submit"
+            [disabled]="isSubmitting()"
+            class="px-5 py-2 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-lg shadow-sm transition-colors cursor-pointer disabled:opacity-50"
+          >
+            {{ isSubmitting() ? 'Enregistrement...' : 'Enregistrer' }}
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+}

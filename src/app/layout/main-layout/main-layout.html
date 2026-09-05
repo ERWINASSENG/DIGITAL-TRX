@@ -1,0 +1,138 @@
+<div class="min-h-screen bg-slate-50 flex flex-col md:flex-row text-slate-800" id="main-app-container">
+
+  <!-- Mobile Overlay -->
+  @if (isSidebarOpen()) {
+    <button 
+      type="button"
+      class="fixed inset-0 bg-slate-900/50 z-40 md:hidden backdrop-blur-xs transition-opacity w-full h-full border-none cursor-default"
+      (click)="closeSidebar()"
+      (keydown.escape)="closeSidebar()"
+      aria-label="Fermer le menu latéral"
+      id="mobile-sidebar-overlay">
+    </button>
+  }
+
+  <!-- SIDEBAR NAVIGATION TRANSIMEX -->
+  <aside 
+    class="fixed md:sticky top-0 left-0 z-50 h-screen w-64 bg-white border-r border-slate-200/90 flex flex-col justify-between transition-transform duration-300 ease-in-out shrink-0 select-none md:translate-x-0 overflow-y-auto"
+    [class.-translate-x-full]="!isSidebarOpen()"
+    [class.translate-x-0]="isSidebarOpen()"
+    id="app-sidebar">
+
+    <!-- Logo & Liens de Navigation -->
+    <div class="flex flex-col">
+      <!-- En-tête Logo Transimex -->
+      <div class="pt-8 pb-7 px-6 flex flex-col items-center justify-center border-b border-slate-100/80" id="sidebar-logo-container">
+        <div class="flex flex-col items-center">
+          <h1 class="text-[32px] font-serif font-black tracking-wide text-[#1e3a8a] leading-none uppercase">
+            TRANSIMEX
+          </h1>
+          <div class="w-full h-[1.5px] bg-[#1e3a8a] mt-2 mb-1.5 opacity-90"></div>
+          <span class="text-[10px] font-bold tracking-wider text-[#b91c1c] uppercase font-sans">
+            Global Logistics Provider
+          </span>
+        </div>
+      </div>
+
+      <!-- Menu de navigation -->
+      <nav class="px-3 py-6 space-y-1" id="sidebar-nav-menu">
+        @for (item of visibleMenuItems(); track item.id) {
+          <a
+            [routerLink]="item.route"
+            routerLinkActive="bg-slate-100/90 text-[#1e3a8a] font-semibold"
+            [routerLinkActiveOptions]="{ exact: item.route === '/dashboard' }"
+            (click)="closeSidebar()"
+            class="flex items-center gap-3.5 px-4 py-3 rounded-xl text-sm font-medium text-slate-600 hover:text-slate-900 hover:bg-slate-50 transition-colors group"
+            [id]="item.id">
+            <mat-icon class="text-slate-500 group-hover:text-slate-800 text-[21px] w-5.5 h-5.5 flex items-center justify-center shrink-0">
+              {{ item.icon }}
+            </mat-icon>
+            <span class="truncate">{{ item.label }}</span>
+          </a>
+        }
+      </nav>
+    </div>
+
+    <!-- Bas de Sidebar : Carte Utilisateur & Déconnexion -->
+    <div class="p-4 border-t border-slate-100/80 space-y-3 shrink-0" id="sidebar-bottom-container">
+      @if (currentUser(); as user) {
+        <a 
+          routerLink="/profile"
+          (click)="closeSidebar()"
+          class="flex items-center justify-between p-2.5 bg-slate-100/70 hover:bg-slate-100 rounded-xl border border-slate-200/60 transition-all group"
+          id="sidebar-user-card"
+        >
+          <div class="flex items-center gap-2.5 min-w-0">
+            <div class="w-9 h-9 rounded-full bg-slate-200 border border-white overflow-hidden shrink-0 flex items-center justify-center shadow-xs">
+              @if (user.avatarUrl) {
+                <img [src]="user.avatarUrl" alt="Avatar" class="w-full h-full object-cover" />
+              } @else {
+                <span class="text-slate-700 font-bold text-xs uppercase">
+                  {{ user.firstName.charAt(0) }}{{ user.lastName.charAt(0) }}
+                </span>
+              }
+            </div>
+            <div class="min-w-0 flex-1">
+              <p class="text-xs font-semibold text-slate-900 truncate leading-tight group-hover:text-[#1e3a8a]">
+                {{ user.firstName }} {{ user.lastName }}
+              </p>
+              <p class="text-[11px] text-slate-500 capitalize truncate mt-0.5">
+                {{ roleLabel(user.role) }}
+              </p>
+            </div>
+          </div>
+
+          <span
+            class="p-1 text-slate-400 group-hover:text-slate-700 rounded-lg group-hover:bg-slate-200/50 transition-colors shrink-0 flex items-center justify-center"
+            title="Accéder au profil"
+            id="sidebar-settings-icon-btn"
+          >
+            <mat-icon class="text-[18px] w-4.5 h-4.5 flex items-center justify-center">chevron_right</mat-icon>
+          </span>
+        </a>
+      }
+
+      <button
+        type="button"
+        (click)="logout()"
+        class="w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl border border-red-100 bg-red-50/40 text-red-700 hover:bg-red-50 hover:text-red-800 hover:border-red-200 active:scale-[0.99] transition-all duration-200 shadow-2xs group focus:outline-hidden focus:ring-2 focus:ring-red-500/30"
+        id="sidebar-logout-btn">
+        <div class="flex items-center gap-2.5">
+          <div class="w-7 h-7 rounded-lg bg-red-100/60 group-hover:bg-red-200/70 text-red-600 flex items-center justify-center transition-colors">
+            <mat-icon class="text-[18px] w-4.5 h-4.5 flex items-center justify-center transition-transform duration-200 group-hover:translate-x-0.5">
+              logout
+            </mat-icon>
+          </div>
+          <span class="text-xs font-semibold tracking-wide">Déconnexion</span>
+        </div>
+
+        <span class="text-[10px] uppercase font-bold text-red-400 group-hover:text-red-600 opacity-0 group-hover:opacity-100 transition-opacity">
+          Quitter
+        </span>
+      </button>
+    </div>
+  </aside>
+
+  <!-- CONTENEUR PRINCIPAL (MAIN VIEWPORT) -->
+  <div class="flex-1 flex flex-col min-w-0 overflow-x-hidden min-h-screen relative">
+    
+    <!-- Bouton flottant mobile uniquement pour ouvrir le menu si besoin -->
+    <button
+      type="button"
+      (click)="toggleSidebar()"
+      class="md:hidden fixed top-3 left-3 z-40 p-2.5 bg-white/95 backdrop-blur-xs rounded-xl shadow-md border border-slate-200 text-slate-700 hover:bg-slate-50 transition-colors cursor-pointer"
+      id="toggle-mobile-sidebar-btn"
+      aria-label="Ouvrir le menu latéral">
+      <mat-icon class="text-slate-700 text-xl">menu</mat-icon>
+    </button>
+
+    <!-- Zone principale contenant router-outlet -->
+    <main class="flex-1 p-4 sm:p-8 max-w-7xl w-full mx-auto" id="app-main-content">
+      <router-outlet></router-outlet>
+    </main>
+
+  </div>
+
+</div>
+
+

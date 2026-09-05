@@ -1,0 +1,224 @@
+import {
+  ChangeDetectionStrategy,
+  Component,
+  OnInit,
+  computed,
+  inject,
+  signal,
+} from '@angular/core';
+import {
+  FormControl,
+  FormGroup,
+  ReactiveFormsModule,
+  Validators,
+} from '@angular/forms';
+import { CommonModule } from '@angular/common';
+import { MatIconModule } from '@angular/material/icon';
+import { CashierService } from '../../core/services/cashier.service';
+import {
+  CashierTransaction,
+  TransactionTypeCategory,
+} from '../../core/models/cashier-transaction.model';
+
+@Component({
+  selector: 'app-cashier-management',
+  imports: [CommonModule, ReactiveFormsModule, MatIconModule],
+  templateUrl: './cashier-management.html',
+  styleUrl: './cashier-management.scss',
+  changeDetection: ChangeDetectionStrategy.OnPush,
+})
+export class CashierManagement implements OnInit {
+  private readonly cashierService = inject(CashierService);
+
+  // Données réactives issues du service
+  public readonly pagedTransactions = this.cashierService.pagedTransactions;
+  public readonly currentBalance = this.cashierService.currentBalance;
+  public readonly totalCount = this.cashierService.totalCount;
+  public readonly filterState = this.cashierService.filterState;
+  public readonly isAllSelected = this.cashierService.isAllSelected;
+  public readonly isLoading = this.cashierService.isLoading;
+  public readonly error = this.cashierService.error;
+
+  // Contrôles UI
+  public readonly isModalOpen = signal<boolean>(false);
+  public readonly isSubmitting = signal<boolean>(false);
+  public readonly isDeleting = signal<boolean>(false);
+  public readonly isFilterDropdownOpen = signal<boolean>(false);
+  public readonly searchControl = new FormControl<string>('', {
+    nonNullable: true,
+  });
+
+  // Nombre d'éléments sélectionnés
+  public readonly selectedCount = computed(() => {
+    return this.cashierService.allTransactions().filter((t) => t.selected).length;
+  });
+
+  // Pagination au format exact : "01-02 / 02" ou "00-00 / 00"
+  public readonly paginationLabel = computed(() => {
+    const total = this.totalCount();
+    if (total === 0) return '00-00 / 00';
+    const { pageIndex, pageSize } = this.filterState();
+    const start = pageIndex * pageSize + 1;
+    const end = Math.min((pageIndex + 1) * pageSize, total);
+
+    const pad = (n: number) => (n < 10 ? `0${n}` : `${n}`);
+    return `${pad(start)}-${pad(end)} / ${pad(total)}`;
+  });
+
+  public readonly canPrevPage = computed(() => this.filterState().pageIndex > 0);
+  public readonly canNextPage = computed(() => {
+    const { pageIndex, pageSize } = this.filterState();
+    return (pageIndex + 1) * pageSize < this.totalCount();
+  });
+
+  // Formulaire de transaction réactif
+  public readonly transactionForm = new FormGroup({
+    libelle: new FormControl<string>('', {
+      nonNullable: true,
+      validators: [Validators.required, Validators.minLength(2)],
+    }),
+    typeTransaction: new FormControl<string>('Opération de caisse', {
+      nonNullable: true,
+      validators: [Validators.required],
+    }),
+    typeDescription: new FormControl<string>('', { nonNullable: true }),
+    category: new FormControl<TransactionTypeCategory>('sortie', {
+      nonNullable: true,
+      validators: [Validators.required],
+    }),
+    firstName: new FormControl<string>('', {
+      nonNullable: true,
+      validators: [Validators.required],
+    }),
+    employee: new FormControl<string>('', { nonNullable: true }),
+    quantity: new FormControl<number | null>(null),
+    montant: new FormControl<number | null>(null, {
+      validators: [Validators.required, Validators.min(1)],
+    }),
+  });
+
+  constructor() {
+    this.searchControl.valueChanges.subscribe((val) => {
+      this.cashierService.setSearchQuery(val);
+    });
+  }
+
+  public ngOnInit(): void {
+    this.cashierService.loadTransactions();
+  }
+
+  public refresh(): void {
+    this.cashierService.loadTransactions();
+  }
+
+  public formatCurrency(amount: number): string {
+    const formatted = Math.abs(amount)
+      .toLocaleString('fr-FR')
+      .replace(/\u202F/g, ' ');
+    if (amount < 0) {
+      return `-${formatted} FCFA`;
+    }
+    return `${formatted} FCFA`;
+  }
+
+  public formatSolde(amount: number): string {
+    return amount.toLocaleString('fr-FR').replace(/\u202F/g, ' ');
+  }
+
+  public onToggleSelect(tx: CashierTransaction): void {
+    this.cashierService.toggleSelectTransaction(tx.id);
+  }
+
+  public onToggleSelectAll(): void {
+    const nextState = !this.isAllSelected();
+    this.cashierService.toggleSelectAll(nextState);
+  }
+
+  public async deleteSelectedTransactions(): Promise<void> {
+    if (this.selectedCount() === 0) return;
+    this.isDeleting.set(true);
+    await this.cashierService.deleteSelected();
+    this.isDeleting.set(false);
+  }
+
+  public prevPage(): void {
+    if (this.canPrevPage()) {
+      this.cashierService.setPageIndex(this.filterState().pageIndex - 1);
+    }
+  }
+
+  public nextPage(): void {
+    if (this.canNextPage()) {
+      this.cashierService.setPageIndex(this.filterState().pageIndex + 1);
+    }
+  }
+
+  public openNewModal(): void {
+    this.transactionForm.reset({
+      libelle: '',
+      typeTransaction: 'Opération diverse',
+      typeDescription: '',
+      category: 'sortie',
+      firstName: '',
+      employee: '',
+      quantity: null,
+      montant: null,
+    });
+    this.isModalOpen.set(true);
+  }
+
+  public closeModal(): void {
+    this.isModalOpen.set(false);
+  }
+
+  public toggleFilterDropdown(): void {
+    this.isFilterDropdownOpen.update((v) => !v);
+  }
+
+  public applyCategoryFilter(cat: 'all' | 'entree' | 'sortie'): void {
+    this.cashierService.setCategoryFilter(cat);
+    this.isFilterDropdownOpen.set(false);
+  }
+
+  public async submitTransaction(): Promise<void> {
+    if (this.transactionForm.invalid) {
+      this.transactionForm.markAllAsTouched();
+      return;
+    }
+
+    this.isSubmitting.set(true);
+    const formValues = this.transactionForm.getRawValue();
+    const rawMontant = Number(formValues.montant) || 0;
+    const finalMontant =
+      formValues.category === 'sortie' ? -Math.abs(rawMontant) : Math.abs(rawMontant);
+
+    const today = new Date();
+    const formattedDate = `${String(today.getDate()).padStart(2, '0')}/${String(
+      today.getMonth() + 1
+    ).padStart(2, '0')}/${today.getFullYear()}`;
+
+    const success = await this.cashierService.addTransaction({
+      date: formattedDate,
+      libelle: formValues.libelle,
+      typeTransaction: formValues.typeTransaction,
+      typeDescription: formValues.typeDescription || undefined,
+      category: formValues.category,
+      firstName: formValues.firstName,
+      employee: formValues.employee || undefined,
+      quantity: formValues.quantity !== null ? Number(formValues.quantity) : undefined,
+      montant: finalMontant,
+    });
+
+    this.isSubmitting.set(false);
+    if (success) {
+      this.closeModal();
+    }
+  }
+
+  public trackByTxId(_index: number, tx: CashierTransaction): string {
+    return tx.id;
+  }
+}
+
+// Alias pour compatibilité
+export { CashierManagement as CashierManagementComponent };

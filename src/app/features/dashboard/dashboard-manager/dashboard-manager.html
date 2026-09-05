@@ -1,0 +1,184 @@
+<div class="space-y-6" id="dashboard-manager-view">
+  <!-- En-tête Manager -->
+  <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white p-6 rounded-2xl border border-slate-200/80 shadow-xs" id="manager-header-card">
+    <div>
+      <div class="flex items-center gap-2">
+        <span class="px-2.5 py-0.5 text-[11px] font-bold tracking-wider uppercase bg-amber-50 text-amber-800 rounded-md border border-amber-200/60">
+          Supervision Opérationnelle
+        </span>
+        <span class="text-xs text-slate-400">•</span>
+        <span class="text-xs text-slate-500 font-medium">Département Transit & Stock</span>
+      </div>
+      <h1 class="text-2xl font-bold text-slate-900 mt-1.5">
+        Tableau de bord Manager
+      </h1>
+      <p class="text-sm text-slate-500 mt-0.5">
+        Pilotage des équipes, approbation des demandes opérationnelles et gestion des flux logistiques.
+      </p>
+    </div>
+
+    <div class="flex items-center gap-3 shrink-0">
+      <a
+        routerLink="/hr"
+        class="inline-flex items-center gap-2 px-4 py-2.5 bg-white border border-slate-200 hover:bg-slate-50 text-slate-700 text-xs font-semibold rounded-xl transition-colors shadow-2xs"
+        id="manager-btn-team">
+        <span>Mon Équipe</span>
+      </a>
+
+      <a
+        routerLink="/dashboard"
+        class="inline-flex items-center gap-2 px-4 py-2.5 bg-[#1e3a8a] hover:bg-blue-900 text-white text-xs font-semibold rounded-xl transition-colors shadow-xs"
+        id="manager-btn-caisse">
+        <span>Valider Opérations</span>
+      </a>
+    </div>
+  </div>
+
+  <!-- Cartes KPIs Manager (4 Métriques de supervision) -->
+  <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4" id="manager-kpis-grid">
+    
+    <!-- KPI 1 : Validations en Attente -->
+    <div class="bg-white p-5 rounded-2xl border border-slate-200/80 shadow-xs flex flex-col justify-between hover:border-slate-300 transition-colors" id="kpi-manager-pending">
+      <div class="flex items-start justify-between">
+        <div>
+          <p class="text-xs font-medium text-slate-500">Validations en Attente</p>
+          <p class="text-2xl font-bold text-amber-600 mt-1">{{ pendingCount() }} Demandes</p>
+        </div>
+      </div>
+      <div class="mt-4 flex items-center gap-1.5 text-[11px] text-amber-700 font-medium">
+        <span>Action requise avant 17h00</span>
+      </div>
+    </div>
+
+    <!-- KPI 2 : Membres d'Équipe Présents -->
+    <div class="bg-white p-5 rounded-2xl border border-slate-200/80 shadow-xs flex flex-col justify-between hover:border-slate-300 transition-colors" id="kpi-manager-presence">
+      <div class="flex items-start justify-between">
+        <div>
+          <p class="text-xs font-medium text-slate-500">Présences Équipe</p>
+          <p class="text-2xl font-bold text-slate-900 mt-1">{{ teamPresentCount() }}/{{ teamTotalCount() }} Présents</p>
+        </div>
+      </div>
+      <div class="mt-4 flex items-center gap-1.5 text-[11px] text-emerald-700 font-medium">
+        <span>Taux de présence 92%</span>
+      </div>
+    </div>
+
+    <!-- KPI 3 : Dossiers & Ordres en Cours -->
+    <div class="bg-white p-5 rounded-2xl border border-slate-200/80 shadow-xs flex flex-col justify-between hover:border-slate-300 transition-colors" id="kpi-manager-orders">
+      <div class="flex items-start justify-between">
+        <div>
+          <p class="text-xs font-medium text-slate-500">Dossiers en Traitement</p>
+          <p class="text-2xl font-bold text-slate-900 mt-1">28 Dossiers</p>
+        </div>
+      </div>
+      <div class="mt-4 flex items-center gap-1.5 text-[11px] text-slate-500">
+        <span class="font-medium text-slate-800">18 dédouanés</span>
+        <span>• 10 en transit portuaire</span>
+      </div>
+    </div>
+
+    <!-- KPI 4 : Respect des Délais (SLA) -->
+    <div class="bg-white p-5 rounded-2xl border border-slate-200/80 shadow-xs flex flex-col justify-between hover:border-slate-300 transition-colors" id="kpi-manager-sla">
+      <div class="flex items-start justify-between">
+        <div>
+          <p class="text-xs font-medium text-slate-500">Conformité Délais (SLA)</p>
+          <p class="text-2xl font-bold text-slate-900 mt-1">96.8%</p>
+        </div>
+      </div>
+      <div class="mt-4 flex items-center gap-1.5 text-[11px] text-emerald-700 font-medium">
+        <span>Excellente ponctualité</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Demandes à Valider & Suivi Opérationnel -->
+  <div class="grid grid-cols-1 lg:grid-cols-3 gap-6" id="manager-sections-grid">
+    
+    <!-- Colonne Gauche (2/3) : Demandes en attente d'approbation -->
+    <div class="lg:col-span-2 bg-white p-6 rounded-2xl border border-slate-200/80 shadow-xs space-y-4" id="manager-approvals-table">
+      <div class="flex items-center justify-between pb-4 border-b border-slate-100">
+        <div>
+          <h2 class="text-base font-bold text-slate-900">Demandes en Attente d'Approbation</h2>
+          <p class="text-xs text-slate-500 mt-0.5">Décaissements, ordres de transport et congés de vos collaborateurs</p>
+        </div>
+        <span class="text-xs font-bold px-2.5 py-1 bg-amber-100 text-amber-800 rounded-lg">
+          {{ pendingRequests().length }} en file
+        </span>
+      </div>
+
+      <div class="divide-y divide-slate-100">
+        @for (req of pendingRequests(); track req.id) {
+          <div class="py-3.5 flex flex-col sm:flex-row sm:items-center justify-between gap-3 hover:bg-slate-50/50 p-2 rounded-xl transition-colors">
+            <div class="flex items-start gap-3">
+              <div>
+                <p class="text-xs font-bold text-slate-900">{{ req.title }}</p>
+                <div class="flex flex-wrap items-center gap-2 text-[11px] text-slate-500 mt-0.5">
+                  <span class="font-medium text-slate-700">{{ req.initiator }}</span>
+                  <span>•</span>
+                  <span>{{ req.detail }}</span>
+                  <span>•</span>
+                  <span class="text-slate-400">{{ req.date }}</span>
+                </div>
+              </div>
+            </div>
+
+            <!-- Actions Approbation / Rejet -->
+            <div class="flex items-center gap-2 shrink-0 self-end sm:self-auto">
+              @if (req.status === 'pending') {
+                <button
+                  type="button"
+                  (click)="rejectRequest(req.id)"
+                  class="px-2.5 py-1.5 text-xs font-semibold text-red-600 hover:bg-red-50 rounded-lg border border-red-200 transition-colors"
+                  title="Rejeter">
+                  Rejeter
+                </button>
+                <button
+                  type="button"
+                  (click)="approveRequest(req.id)"
+                  class="px-3 py-1.5 text-xs font-semibold text-white bg-emerald-600 hover:bg-emerald-700 rounded-lg shadow-2xs transition-colors inline-flex items-center gap-1"
+                  title="Approuver">
+                  <span>Approuver</span>
+                </button>
+              } @else if (req.status === 'approved') {
+                <span class="inline-flex items-center gap-1 text-xs font-semibold text-emerald-700 bg-emerald-50 px-2.5 py-1 rounded-lg border border-emerald-200">
+                  Approuvé
+                </span>
+              } @else {
+                <span class="inline-flex items-center gap-1 text-xs font-semibold text-red-700 bg-red-50 px-2.5 py-1 rounded-lg border border-red-200">
+                  Rejeté
+                </span>
+              }
+            </div>
+          </div>
+        }
+      </div>
+    </div>
+
+    <!-- Colonne Droite (1/3) : Statut Logistique & Alertes Entrepôt -->
+    <div class="bg-white p-6 rounded-2xl border border-slate-200/80 shadow-xs space-y-4" id="manager-alerts-panel">
+      <div class="flex items-center justify-between pb-4 border-b border-slate-100">
+        <h2 class="text-base font-bold text-slate-900">Alertes & Stock</h2>
+        <span class="text-[11px] font-bold px-2 py-0.5 bg-blue-50 text-[#1e3a8a] rounded-md">Douala Port</span>
+      </div>
+
+      <div class="space-y-3">
+        @for (alert of alerts(); track alert.id) {
+          <div class="p-3 rounded-xl border border-slate-100 bg-slate-50/50 flex items-start gap-3 text-xs">
+            <div>
+              <p class="font-bold text-slate-800">{{ alert.title }}</p>
+              <p class="text-slate-500 text-[11px] mt-0.5 leading-snug">{{ alert.message }}</p>
+            </div>
+          </div>
+        }
+      </div>
+
+      <div class="pt-4 border-t border-slate-100">
+        <a 
+          routerLink="/dashboard" 
+          class="w-full inline-flex items-center justify-center gap-2 py-2.5 px-3 text-xs font-semibold text-slate-700 bg-slate-100 hover:bg-slate-200/80 rounded-xl transition-colors">
+          <span>Historique des flux de caisse</span>
+        </a>
+      </div>
+    </div>
+  </div>
+</div>
