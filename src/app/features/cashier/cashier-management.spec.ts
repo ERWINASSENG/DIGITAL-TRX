@@ -46,14 +46,13 @@ describe('CashierManagement', () => {
     expect(component.formatSolde(455000)).toContain('455 000');
   });
 
-  it('devrait soumettre une transaction valide et fermer la modale', async () => {
+  it('devrait soumettre une transaction valide de type Administration', async () => {
     component.openNewModal();
     component.transactionForm.patchValue({
-      libelle: 'Entretien véhicule',
+      libelle: 'Fournitures de bureau',
       category: 'sortie',
       montant: 25000,
-      firstName: 'Paul',
-      typeTransaction: 'Maintenance',
+      typeTransaction: 'Administration',
     });
 
     await component.submitTransaction();
@@ -61,5 +60,29 @@ describe('CashierManagement', () => {
     expect(component.isModalOpen()).toBe(false);
     expect(service.allTransactions().length).toBe(1);
     expect(component.currentBalance()).toBe(-25000);
+  });
+
+  it('devrait exiger le matricule et la quantité lorsque le type est Opérations', async () => {
+    component.openNewModal();
+    component.transactionForm.patchValue({
+      libelle: 'Carburant citerne',
+      category: 'sortie',
+      montant: 150000,
+      typeTransaction: 'Opérations',
+      matriculeVehicule: '',
+      quantity: null,
+    });
+
+    expect(component.transactionForm.invalid).toBe(true);
+
+    component.transactionForm.patchValue({
+      matriculeVehicule: 'LT-842-AB',
+      quantity: 50,
+    });
+
+    expect(component.transactionForm.valid).toBe(true);
+
+    await component.submitTransaction();
+    expect(component.isModalOpen()).toBe(false);
   });
 });

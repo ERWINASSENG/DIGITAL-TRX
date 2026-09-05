@@ -77,7 +77,7 @@ export class CashierManagement implements OnInit {
       nonNullable: true,
       validators: [Validators.required, Validators.minLength(2)],
     }),
-    typeTransaction: new FormControl<string>('Opération de caisse', {
+    typeTransaction: new FormControl<'Opérations' | 'Administration'>('Administration', {
       nonNullable: true,
       validators: [Validators.required],
     }),
@@ -86,10 +86,7 @@ export class CashierManagement implements OnInit {
       nonNullable: true,
       validators: [Validators.required],
     }),
-    firstName: new FormControl<string>('', {
-      nonNullable: true,
-      validators: [Validators.required],
-    }),
+    matriculeVehicule: new FormControl<string>('', { nonNullable: true }),
     employee: new FormControl<string>('', { nonNullable: true }),
     quantity: new FormControl<number | null>(null),
     montant: new FormControl<number | null>(null, {
@@ -97,10 +94,34 @@ export class CashierManagement implements OnInit {
     }),
   });
 
+  public readonly isOperationsType = signal<boolean>(false);
+
   constructor() {
     this.searchControl.valueChanges.subscribe((val) => {
       this.cashierService.setSearchQuery(val);
     });
+
+    // Écoute dynamique du type de transaction pour activer la distribution analytique
+    this.transactionForm.get('typeTransaction')?.valueChanges.subscribe((type) => {
+      const isOps = type === 'Opérations';
+      this.isOperationsType.set(isOps);
+      this.updateConditionalValidators(isOps);
+    });
+  }
+
+  private updateConditionalValidators(isOps: boolean): void {
+    const matriculeCtrl = this.transactionForm.get('matriculeVehicule');
+    const quantityCtrl = this.transactionForm.get('quantity');
+
+    if (isOps) {
+      matriculeCtrl?.setValidators([Validators.required, Validators.minLength(2)]);
+      quantityCtrl?.setValidators([Validators.required, Validators.min(1)]);
+    } else {
+      matriculeCtrl?.clearValidators();
+      quantityCtrl?.clearValidators();
+    }
+    matriculeCtrl?.updateValueAndValidity();
+    quantityCtrl?.updateValueAndValidity();
   }
 
   public ngOnInit(): void {
@@ -156,14 +177,16 @@ export class CashierManagement implements OnInit {
   public openNewModal(): void {
     this.transactionForm.reset({
       libelle: '',
-      typeTransaction: 'Opération diverse',
+      typeTransaction: 'Administration',
       typeDescription: '',
       category: 'sortie',
-      firstName: '',
+      matriculeVehicule: '',
       employee: '',
       quantity: null,
       montant: null,
     });
+    this.isOperationsType.set(false);
+    this.updateConditionalValidators(false);
     this.isModalOpen.set(true);
   }
 
@@ -203,9 +226,9 @@ export class CashierManagement implements OnInit {
       typeTransaction: formValues.typeTransaction,
       typeDescription: formValues.typeDescription || undefined,
       category: formValues.category,
-      firstName: formValues.firstName,
+      matriculeVehicule: formValues.matriculeVehicule || undefined,
       employee: formValues.employee || undefined,
-      quantity: formValues.quantity !== null ? Number(formValues.quantity) : undefined,
+      quantity: formValues.quantity !== null && formValues.quantity !== undefined ? Number(formValues.quantity) : undefined,
       montant: finalMontant,
     });
 

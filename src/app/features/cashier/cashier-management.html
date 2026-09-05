@@ -191,7 +191,7 @@
                   <mat-icon class="text-xs w-4 h-4 flex items-center justify-center text-slate-400 group-hover:text-slate-600">filter_list</mat-icon>
                 </div>
               </th>
-              <th scope="col" class="py-4 px-4 font-semibold text-slate-500 whitespace-nowrap">First name</th>
+              <th scope="col" class="py-4 px-4 font-semibold text-slate-500 whitespace-nowrap">Distribution Analytique</th>
               <th scope="col" class="py-4 px-4 font-semibold text-slate-500">
                 <div class="inline-flex items-center gap-1 cursor-pointer group">
                   <span>Employe</span>
@@ -235,7 +235,15 @@
                       }
                     </div>
                   </td>
-                  <td class="py-5 px-4 whitespace-nowrap text-slate-700">{{ tx.firstName }}</td>
+                  <td class="py-5 px-4 whitespace-nowrap">
+                    @if (tx.matriculeVehicule) {
+                      <span class="font-mono text-xs font-bold text-blue-800 bg-blue-50/80 px-2 py-1 rounded border border-blue-200">
+                        {{ tx.matriculeVehicule }}
+                      </span>
+                    } @else {
+                      <span class="text-slate-400 text-xs">—</span>
+                    }
+                  </td>
                   <td class="py-5 px-4 whitespace-nowrap text-slate-500">{{ tx.employee || '—' }}</td>
                   <td class="py-5 px-4 text-center text-slate-500 whitespace-nowrap">
                     {{ tx.quantity !== undefined ? tx.quantity : '' }}
@@ -337,6 +345,50 @@
           </div>
         </div>
 
+        <!-- Type de transaction (Liste déroulante exclusive : Administration ou Opérations) -->
+        <div>
+          <label for="select-type-tx" class="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1">
+            Type de transaction *
+          </label>
+          <select
+            id="select-type-tx"
+            formControlName="typeTransaction"
+            class="w-full px-3 py-2 text-sm bg-white border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 font-medium text-slate-800 cursor-pointer"
+          >
+            <option value="Administration">Administration</option>
+            <option value="Opérations">Opérations</option>
+          </select>
+        </div>
+
+        <!-- SECTION CONDITIONNELLE : Distribution Analytique (si Opérations) -->
+        @if (isOperationsType()) {
+          <div class="p-3.5 bg-blue-50/60 border border-blue-200 rounded-xl space-y-2 animate-in fade-in duration-200" id="distribution-analytique-box">
+            <div class="flex items-center justify-between">
+              <span class="text-xs font-bold text-blue-900 uppercase tracking-wider">
+                Distribution Analytique (Opérations)
+              </span>
+              <span class="text-[11px] font-semibold text-blue-700 bg-blue-100 px-2 py-0.5 rounded">
+                Requis
+              </span>
+            </div>
+            <div>
+              <label for="input-matricule" class="block text-xs font-semibold text-blue-900 mb-1">
+                Matricule du véhicule *
+              </label>
+              <input
+                id="input-matricule"
+                type="text"
+                formControlName="matriculeVehicule"
+                placeholder="Ex: LT-482-AB / TR-1092"
+                class="w-full px-3 py-2 text-sm bg-white border border-blue-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500/30 focus:border-blue-600 uppercase font-mono font-semibold text-slate-800"
+              />
+              @if (transactionForm.get('matriculeVehicule')?.touched && transactionForm.get('matriculeVehicule')?.invalid) {
+                <p class="text-xs text-rose-600 mt-1 font-medium">Le matricule du véhicule est obligatoire pour une opération.</p>
+              }
+            </div>
+          </div>
+        }
+
         <!-- Libellé -->
         <div>
           <label for="input-libelle" class="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1">
@@ -373,35 +425,23 @@
           </div>
           <div>
             <label for="input-qte" class="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1">
-              Quantité (QTE)
+              Quantité (QTE) {{ isOperationsType() ? '*' : '(Facultatif)' }}
             </label>
             <input
               id="input-qte"
               type="number"
               formControlName="quantity"
-              placeholder="Facultatif"
+              [placeholder]="isOperationsType() ? 'Ex: 50 (Litres / Unités)' : 'Facultatif'"
               class="w-full px-3 py-2 text-sm bg-white border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
             />
+            @if (transactionForm.get('quantity')?.touched && transactionForm.get('quantity')?.invalid) {
+              <p class="text-xs text-rose-500 mt-1">La quantité est obligatoire pour une opération (min 1).</p>
+            }
           </div>
         </div>
 
-        <!-- Prénom (First name) & Employé -->
+        <!-- Employé (Bénéficiaire) & Sous-titre / Détail -->
         <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
-          <div>
-            <label for="input-firstname" class="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1">
-              Prénom (First name) *
-            </label>
-            <input
-              id="input-firstname"
-              type="text"
-              formControlName="firstName"
-              placeholder="Ex: Nathan, Jose..."
-              class="w-full px-3 py-2 text-sm bg-white border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
-            />
-            @if (transactionForm.get('firstName')?.touched && transactionForm.get('firstName')?.invalid) {
-              <p class="text-xs text-rose-500 mt-1">Le prénom est requis.</p>
-            }
-          </div>
           <div>
             <label for="input-employee" class="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1">
               Employé (Bénéficiaire)
@@ -411,22 +451,6 @@
               type="text"
               formControlName="employee"
               placeholder="Facultatif"
-              class="w-full px-3 py-2 text-sm bg-white border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
-            />
-          </div>
-        </div>
-
-        <!-- Type de transaction et description -->
-        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
-          <div>
-            <label for="input-type" class="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1">
-              Type de transaction *
-            </label>
-            <input
-              id="input-type"
-              type="text"
-              formControlName="typeTransaction"
-              placeholder="Ex: Opération de caisse"
               class="w-full px-3 py-2 text-sm bg-white border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
             />
           </div>

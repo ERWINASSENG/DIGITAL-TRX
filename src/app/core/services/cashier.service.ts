@@ -13,6 +13,7 @@ export interface CashierDbRow {
   type_transaction: string;
   type_description: string | null;
   category: 'entree' | 'sortie' | null;
+  matricule_vehicule?: string | null;
   first_name: string | null;
   employee: string | null;
   quantity: number | null;
@@ -128,6 +129,7 @@ export class CashierService {
             typeTransaction: row.type_transaction || '',
             typeDescription: row.type_description || '',
             category: (row.category || (numMontant >= 0 ? 'entree' : 'sortie')) as 'entree' | 'sortie',
+            matriculeVehicule: row.matricule_vehicule || '',
             firstName: row.first_name || '',
             employee: row.employee || '',
             quantity: row.quantity !== null && row.quantity !== undefined ? Number(row.quantity) : undefined,
@@ -221,6 +223,7 @@ export class CashierService {
         type_transaction: newTx.typeTransaction,
         type_description: newTx.typeDescription || null,
         category: newTx.category,
+        matricule_vehicule: newTx.matriculeVehicule || null,
         first_name: newTx.firstName || null,
         employee: newTx.employee || null,
         quantity: newTx.quantity || 1,
@@ -246,6 +249,7 @@ export class CashierService {
           typeTransaction: data.type_transaction,
           typeDescription: data.type_description || '',
           category: data.category,
+          matriculeVehicule: data.matricule_vehicule || '',
           firstName: data.first_name || '',
           employee: data.employee || '',
           quantity: data.quantity ? Number(data.quantity) : undefined,
