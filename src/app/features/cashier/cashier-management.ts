@@ -13,8 +13,10 @@ import {
   Validators,
 } from '@angular/forms';
 import { CommonModule } from '@angular/common';
+import { RouterLink } from '@angular/router';
 import { MatIconModule } from '@angular/material/icon';
 import { CashierService } from '../../core/services/cashier.service';
+import { AuthService } from '../../core/services/auth.service';
 import {
   CashierTransaction,
   TransactionTypeCategory,
@@ -22,13 +24,20 @@ import {
 
 @Component({
   selector: 'app-cashier-management',
-  imports: [CommonModule, ReactiveFormsModule, MatIconModule],
+  imports: [CommonModule, ReactiveFormsModule, MatIconModule, RouterLink],
   templateUrl: './cashier-management.html',
   styleUrl: './cashier-management.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class CashierManagement implements OnInit {
   private readonly cashierService = inject(CashierService);
+  private readonly authService = inject(AuthService);
+
+  // Permissions : Seuls admin et caissiere peuvent créer/modifier/supprimer
+  public readonly canEdit = computed(() => {
+    const role = this.authService.currentUser()?.role;
+    return role === 'admin' || role === 'caissiere';
+  });
 
   // Données réactives issues du service
   public readonly pagedTransactions = this.cashierService.pagedTransactions;

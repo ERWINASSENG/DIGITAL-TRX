@@ -1,6 +1,17 @@
 <div class="cashier-page min-h-screen bg-slate-50/70 p-4 sm:p-6 lg:p-8">
   <div class="max-w-7xl mx-auto space-y-6">
 
+    <!-- Bouton Retour "Tableau de bord" en haut à gauche (sans icône) -->
+    <div>
+      <a
+        routerLink="/dashboard"
+        class="inline-flex items-center px-4 py-2 bg-white hover:bg-slate-100 border border-slate-200 rounded-lg text-sm font-semibold text-slate-700 hover:text-[#1e3a8a] shadow-2xs transition-colors cursor-pointer"
+        id="back-to-dashboard-btn"
+      >
+        Tableau de bord
+      </a>
+    </div>
+
     <!-- LIGNE 1 : Barre supérieure (Recherche avec icône filtre à gauche, Actions & Pagination à droite) -->
     <header class="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-4">
       <!-- Recherche & Filtre intégré -->
@@ -71,7 +82,7 @@
 
       <!-- Actions de sélection & Pagination compacte ("01-02 / 02  <  >") -->
       <div class="flex items-center self-end sm:self-auto gap-3 text-sm font-semibold text-slate-800">
-        @if (selectedCount() > 0) {
+        @if (canEdit() && selectedCount() > 0) {
           <button
             id="cashier-delete-selected-btn"
             type="button"
@@ -141,19 +152,23 @@
       </div>
     }
 
-    <!-- LIGNE 2 : Bouton "Nouveau" à gauche et "Solde Actuelle" avec montant vert à droite -->
+    <!-- LIGNE 2 : Bouton "Nouveau" à gauche (si autorisé) et "Solde Actuelle" avec montant vert à droite -->
     <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 pt-1 pb-1">
-      <!-- Bouton Nouveau -->
-      <button
-        id="cashier-new-btn"
-        type="button"
-        (click)="startAddInline()"
-        [disabled]="isAddingRow()"
-        class="inline-flex items-center gap-2 px-6 py-2.5 bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white text-sm font-medium rounded-lg shadow-sm transition-all focus:outline-none focus:ring-2 focus:ring-blue-500/50 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
-      >
-        <mat-icon class="text-base w-4 h-4 flex items-center justify-center">add</mat-icon>
-        <span>Nouveau</span>
-      </button>
+      <!-- Bouton Nouveau (uniquement pour les rôles avec droit d'édition) -->
+      @if (canEdit()) {
+        <button
+          id="cashier-new-btn"
+          type="button"
+          (click)="startAddInline()"
+          [disabled]="isAddingRow()"
+          class="inline-flex items-center gap-2 px-6 py-2.5 bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white text-sm font-medium rounded-lg shadow-sm transition-all focus:outline-none focus:ring-2 focus:ring-blue-500/50 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+        >
+          <mat-icon class="text-base w-4 h-4 flex items-center justify-center">add</mat-icon>
+          <span>Nouveau</span>
+        </button>
+      } @else {
+        <div></div>
+      }
 
       <!-- Solde Actuelle (Libellé noir + Grand chiffre vert gras) -->
       <div class="flex items-center gap-4 self-end sm:self-auto">
@@ -411,7 +426,7 @@
       </div>
 
       <!-- Bouton / Lien discret Odoo en bas de liste "Ajouter une ligne" -->
-      @if (!isAddingRow()) {
+      @if (canEdit() && !isAddingRow()) {
         <div class="p-3 bg-slate-50/50 border-t border-slate-100 flex items-center">
           <button
             type="button"
