@@ -3,24 +3,10 @@ import { isPlatformBrowser } from '@angular/common';
 import { Router } from '@angular/router';
 import { LoginCredentials, UserProfile, UserRole } from '../models/auth.model';
 import { SupabaseService } from './supabase.service';
+import { normalizeUserRole } from '../utils/role.utils';
 
 // Clé résiduelle utilisée uniquement pour la purge défensive
 const LEGACY_SESSION_STORAGE_KEY = 'transmex_auth_session';
-
-/**
- * Normalise et assainit le rôle pour s'assurer qu'il s'agit strictement d'un rôle Transmex valide.
- * Mappe tout résidu 'agent' vers 'manager' ou 'employe' en fonction du contexte.
- */
-function normalizeUserRole(rawRole: unknown): UserRole {
-  if (typeof rawRole === 'string') {
-    const clean = rawRole.trim().toLowerCase();
-    if (clean === 'admin') return 'admin';
-    if (clean === 'manager' || clean === 'agent') return 'manager';
-    if (clean === 'caissiere') return 'caissiere';
-    if (clean === 'employe' || clean === 'employee') return 'employe';
-  }
-  return 'manager';
-}
 
 @Injectable({
   providedIn: 'root',
@@ -139,11 +125,20 @@ export class AuthService {
 
       // Si la base contient un rôle legacy ou désynchronisé, on met à jour le profil
       if (profile && profile.role !== resolvedRole) {
-        this.supabaseService.supabase
-          .from('profiles')
-          .update({ role: resolvedRole })
-          .eq('id', userId)
-          .then();
+        Promise.resolve(
+          this.supabaseService.supabase
+            .from('profiles')
+            .update({ role: resolvedRole })
+            .eq('id', userId)
+        )
+          .then(({ error }) => {
+            if (error) {
+              console.error('Échec de la resynchronisation du rôle de profil:', error.message);
+            }
+          })
+          .catch((err: unknown) => {
+            console.error('Erreur inattendue lors de la resynchronisation du rôle:', err);
+          });
       }
 
       const userProfile: UserProfile = {

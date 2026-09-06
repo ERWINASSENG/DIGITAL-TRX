@@ -1,21 +1,11 @@
 import { Injectable, computed, inject, signal, PLATFORM_ID } from '@angular/core';
 import { isPlatformBrowser } from '@angular/common';
-import { CreateUserPayload, UpdateUserPayload, UserProfile, UserRole } from '../models/auth.model';
+import { CreateUserPayload, UpdateUserPayload, UserProfile } from '../models/auth.model';
 import { SupabaseService } from './supabase.service';
 import { generateSecureUUID } from '../utils/crypto.utils';
+import { normalizeUserRole } from '../utils/role.utils';
 
 const USERS_STORAGE_KEY = 'transmex_users_store';
-
-function normalizeRole(r: unknown): UserRole {
-  if (typeof r === 'string') {
-    const clean = r.trim().toLowerCase();
-    if (clean === 'admin') return 'admin';
-    if (clean === 'manager' || clean === 'agent') return 'manager';
-    if (clean === 'caissiere') return 'caissiere';
-    if (clean === 'employe' || clean === 'employee') return 'employe';
-  }
-  return 'manager';
-}
 
 @Injectable({
   providedIn: 'root',
@@ -84,7 +74,7 @@ export class UserService {
                 email: row.email,
                 firstName: row.firstName || 'Utilisateur',
                 lastName: row.lastName || 'Transmex',
-                role: normalizeRole(row.role),
+                role: normalizeUserRole(row.role),
                 department: row.department || 'Services Généraux',
                 phone: row.phone,
                 isActive: row.isActive ?? true,
@@ -120,7 +110,7 @@ export class UserService {
             email: row.email,
             firstName: row.first_name || 'Utilisateur',
             lastName: row.last_name || 'Transmex',
-            role: normalizeRole(row.role),
+            role: normalizeUserRole(row.role),
             department: row.department || 'Services Généraux',
             phone: row.phone,
             isActive: row.is_active ?? true,

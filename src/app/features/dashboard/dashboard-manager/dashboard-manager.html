@@ -18,122 +18,50 @@
     </div>
   </div>
 
-  <!-- Carte Caisse -->
-  <div class="bg-white p-6 rounded-2xl border border-slate-200/80 shadow-xs" id="caisse-card">
-    
-    <!-- Ligne 1 : Caisse -->
-    <h2 class="text-lg font-bold text-slate-900" id="caisse-title">
-      Caisse
-    </h2>
-
-    <!-- Ligne 2 : Transactions (à gauche) et Solde : (à droite) -->
-    <div class="flex items-center justify-between gap-4 mt-2 pb-3 border-b border-slate-100" id="caisse-subline">
-      <!-- Transactions à gauche -->
-      <a
-        routerLink="/caisse"
-        class="text-sm font-semibold text-slate-700 hover:text-[#1e3a8a] transition-colors cursor-pointer"
-        id="caisse-transactions-link"
-        title="Consulter les transactions">
-        Transactions
-      </a>
-
-      <!-- Solde à droite -->
-      <div class="flex items-baseline gap-1.5" id="caisse-balance-container">
-        <span class="text-sm font-medium text-slate-500">Solde :</span>
-        <span class="text-base sm:text-lg font-bold tracking-tight" [class]="currentBalance() >= 0 ? 'text-[#1e3a8a]' : 'text-red-600'" id="caisse-balance-value">
-          {{ formatCurrency(currentBalance()) }}
-        </span>
-      </div>
-    </div>
-
-    <!-- Ligne 3 / Reste de la carte : Courbe directement intégrée à la carte (sans boîte) -->
-    <div
-      class="relative w-full h-64 sm:h-72 mt-2 overflow-visible cursor-crosshair select-none"
-      (mousemove)="onChartMouseMove($event)"
-      (mouseleave)="onChartMouseLeave()"
-      id="caisse-chart-wrapper">
+  <!-- Grille des cartes du tableau de bord (2 cartes par ligne sur desktop) -->
+  <div class="grid grid-cols-1 lg:grid-cols-2 gap-6" id="dashboard-manager-grid">
+    <!-- Carte Caisse -->
+    <div class="bg-white p-5 sm:p-6 rounded-2xl border border-slate-200/80 shadow-xs flex flex-col justify-between" id="caisse-card">
       
-      <svg
-        class="w-full h-full overflow-visible"
-        viewBox="0 0 600 240"
-        preserveAspectRatio="none"
-        id="caisse-chart-svg">
-        <defs>
-          <!-- Dégradé sous la courbe -->
-          <linearGradient id="caisseGradient" x1="0%" y1="0%" x2="0%" y2="100%">
-            <stop offset="0%" stop-color="#1e3a8a" stop-opacity="0.18" />
-            <stop offset="100%" stop-color="#1e3a8a" stop-opacity="0.00" />
-          </linearGradient>
-        </defs>
+      <!-- En-tête de la carte Caisse -->
+      <div>
+        <!-- Ligne 1 : Caisse -->
+        <h2 class="text-base sm:text-lg font-bold text-slate-900" id="caisse-title">
+          Caisse
+        </h2>
 
-        <!-- Lignes de repères horizontales discrètes -->
-        <line x1="0" y1="60" x2="600" y2="60" stroke="#f1f5f9" stroke-width="1" stroke-dasharray="3 3" />
-        <line x1="0" y1="120" x2="600" y2="120" stroke="#f1f5f9" stroke-width="1" stroke-dasharray="3 3" />
-        <line x1="0" y1="180" x2="600" y2="180" stroke="#f1f5f9" stroke-width="1" stroke-dasharray="3 3" />
+        <!-- Ligne 2 : Transactions (à gauche) et Solde : (à droite) -->
+        <div class="flex items-center justify-between gap-3 mt-1.5 pb-2.5 border-b border-slate-100" id="caisse-subline">
+          <!-- Transactions à gauche -->
+          <a
+            routerLink="/caisse"
+            class="text-xs sm:text-sm font-semibold text-slate-700 hover:text-[#1e3a8a] transition-colors cursor-pointer inline-flex items-center gap-1"
+            id="caisse-transactions-link"
+            title="Consulter les transactions">
+            <span>Transactions</span>
+            <mat-icon class="!text-[14px] !w-[14px] !h-[14px] text-slate-400">arrow_forward</mat-icon>
+          </a>
 
-        <!-- Remplissage sous la courbe -->
-        @if (chartAreaPath()) {
-          <path
-            [attr.d]="chartAreaPath()"
-            fill="url(#caisseGradient)"
-            class="transition-all duration-300" />
-        }
-
-        <!-- Ligne de la courbe -->
-        @if (chartLinePath()) {
-          <path
-            [attr.d]="chartLinePath()"
-            fill="none"
-            stroke="#1e3a8a"
-            stroke-width="2.5"
-            stroke-linecap="round"
-            stroke-linejoin="round"
-            class="transition-all duration-300" />
-        }
-
-        <!-- Ligne verticale de repère au survol -->
-        @if (hoveredPoint()) {
-          <line
-            [attr.x1]="hoveredPoint()!.x"
-            y1="10"
-            [attr.x2]="hoveredPoint()!.x"
-            y2="230"
-            stroke="#3b82f6"
-            stroke-width="1.5"
-            stroke-dasharray="3 3" />
-
-          <!-- Point actif sur la courbe -->
-          <circle
-            [attr.cx]="hoveredPoint()!.x"
-            [attr.cy]="hoveredPoint()!.y"
-            r="6"
-            fill="#ffffff"
-            stroke="#1e3a8a"
-            stroke-width="3"
-            class="filter drop-shadow-sm" />
-        }
-      </svg>
-
-      <!-- Infobulle / Tooltip interactif au survol de la courbe -->
-      @if (hoveredPoint()) {
-        <div
-          class="absolute z-20 pointer-events-none transform -translate-x-1/2 -translate-y-full bg-slate-900/95 backdrop-blur-xs text-white px-3 py-2 rounded-xl shadow-lg border border-slate-700/60 text-xs transition-all duration-75"
-          [style.left.%]="hoveredPoint()!.percentX"
-          [style.top.px]="hoveredPoint()!.pixelY - 12"
-          id="caisse-chart-tooltip">
-          <p class="text-[11px] font-medium text-slate-300">
-            {{ hoveredPoint()!.date }}
-          </p>
-          <p class="text-sm font-bold text-white mt-0.5">
-            {{ formatCurrency(hoveredPoint()!.balance) }}
-          </p>
-          @if (hoveredPoint()!.label) {
-            <p class="text-[10px] text-blue-300 mt-0.5 truncate max-w-[180px]">
-              {{ hoveredPoint()!.label }}
-            </p>
-          }
+          <!-- Solde à droite -->
+          <div class="flex items-baseline gap-1" id="caisse-balance-container">
+            <span class="text-xs sm:text-sm font-medium text-slate-500">Solde :</span>
+            <span class="text-sm sm:text-base font-bold tracking-tight" [class]="currentBalance() >= 0 ? 'text-[#1e3a8a]' : 'text-red-600'" id="caisse-balance-value">
+              {{ formatCurrency(currentBalance()) }}
+            </span>
+          </div>
         </div>
-      }
+      </div>
+
+      <!-- Ligne 3 : Courbe Chart.js native compacte -->
+      <div class="relative w-full h-48 sm:h-52 mt-2" id="caisse-chart-wrapper">
+        <canvas
+          #caisseChartCanvas
+          id="caisse-chart-canvas"
+          class="w-full h-full block"
+          aria-label="Courbe d'évolution du solde de caisse"
+          role="img">
+        </canvas>
+      </div>
     </div>
   </div>
 </div>

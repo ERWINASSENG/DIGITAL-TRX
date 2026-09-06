@@ -1,16 +1,18 @@
 <div class="cashier-page min-h-screen bg-slate-50/70 p-4 sm:p-6 lg:p-8">
-  <div class="max-w-7xl mx-auto space-y-6">
+  <div class="w-full space-y-6">
 
-    <!-- Bouton Retour "Tableau de bord" en haut à gauche (sans icône) -->
-    <div>
-      <a
-        routerLink="/dashboard"
-        class="inline-flex items-center px-4 py-2 bg-white hover:bg-slate-100 border border-slate-200 rounded-lg text-sm font-semibold text-slate-700 hover:text-[#1e3a8a] shadow-2xs transition-colors cursor-pointer"
-        id="back-to-dashboard-btn"
-      >
-        Tableau de bord
-      </a>
-    </div>
+    <!-- Bouton Retour "Tableau de bord" en haut à gauche (réservé exclusivement au manager et admin) -->
+    @if (canViewDashboardButton()) {
+      <div>
+        <a
+          routerLink="/dashboard"
+          class="inline-flex items-center px-4 py-2 bg-white hover:bg-slate-100 border border-slate-200 rounded-lg text-sm font-semibold text-slate-700 hover:text-[#1e3a8a] shadow-2xs transition-colors cursor-pointer"
+          id="back-to-dashboard-btn"
+        >
+          Tableau de bord
+        </a>
+      </div>
+    }
 
     <!-- LIGNE 1 : Barre supérieure (Recherche avec icône filtre à gauche, Actions & Pagination à droite) -->
     <header class="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-4">
@@ -184,260 +186,244 @@
       </div>
     </div>
 
-    <!-- TABLEAU DE CAISSE (9 Colonnes conformes : Check, Date, Libelle, Type de Transaction, First name, Employe, QTE, Montant, Soldes) -->
-    <div class="bg-white rounded-xl shadow-sm border border-slate-200/80 overflow-hidden">
-      <div class="overflow-x-auto">
-        <table class="w-full text-left text-xs sm:text-sm border-collapse">
-          <thead>
-            <tr class="border-b border-slate-200/80 text-slate-500 font-semibold select-none bg-slate-50/40">
-              <th scope="col" class="py-4 px-4 w-12 text-center">
-                <button
-                  type="button"
-                  (click)="onToggleSelectAll()"
-                  class="font-semibold text-slate-500 hover:text-slate-800 cursor-pointer"
-                  title="Tout sélectionner / désélectionner"
+    <!-- TABLEAU DE CAISSE PLEINE LARGEUR INTÉGRÉ DIRECTEMENT SUR LA PAGE -->
+    <div class="w-full">
+      <table class="w-full text-left text-xs sm:text-sm border-collapse bg-transparent">
+        <thead>
+          <tr class="border-b-2 border-slate-300 text-slate-600 font-semibold select-none bg-transparent">
+            <th scope="col" class="py-3.5 px-3 w-10 text-center">
+              <button
+                type="button"
+                (click)="onToggleSelectAll()"
+                class="font-semibold text-slate-500 hover:text-slate-800 cursor-pointer"
+                title="Tout sélectionner / désélectionner"
+              >
+                Check
+              </button>
+            </th>
+            <th scope="col" class="py-3.5 px-3 font-semibold text-slate-500 whitespace-nowrap w-28">Date</th>
+            <th scope="col" class="py-3.5 px-3 font-semibold text-slate-500">Libelle</th>
+            <th scope="col" class="py-3.5 px-3 font-semibold text-slate-500 whitespace-nowrap w-44">
+              <div class="inline-flex items-center gap-1 cursor-pointer group">
+                <span>Type de Transaction</span>
+                <mat-icon class="text-xs w-4 h-4 flex items-center justify-center text-slate-400 group-hover:text-slate-600">filter_list</mat-icon>
+              </div>
+            </th>
+            <th scope="col" class="py-3.5 px-3 font-semibold text-slate-500 whitespace-nowrap w-40">Distribution Analytique</th>
+            <th scope="col" class="py-3.5 px-3 font-semibold text-slate-500 whitespace-nowrap w-36">
+              <div class="inline-flex items-center gap-1 cursor-pointer group">
+                <span>Employe</span>
+                <mat-icon class="text-xs w-4 h-4 flex items-center justify-center text-slate-400 group-hover:text-slate-600">filter_list</mat-icon>
+              </div>
+            </th>
+            <th scope="col" class="py-3.5 px-3 font-semibold text-slate-500 text-center whitespace-nowrap w-16">QTE</th>
+            <th scope="col" class="py-3.5 px-3 font-semibold text-slate-500 text-right whitespace-nowrap w-36">Montant</th>
+            <th scope="col" class="py-3.5 px-3 font-semibold text-slate-500 text-right whitespace-nowrap w-36">Soldes</th>
+          </tr>
+        </thead>
+        <tbody class="divide-y divide-slate-200/80 bg-transparent">
+          <!-- LIGNE D'ÉDITION STYLE ODOO (INLINE EDITABLE VIA BOUTON NOUVEAU) -->
+          @if (isAddingRow()) {
+            <tr class="bg-amber-50/40 hover:bg-amber-50/50 transition-colors border-b border-amber-200/80 font-normal text-slate-800" id="inline-add-row" [formGroup]="transactionForm">
+              <!-- Indicateur Odoo -->
+              <td class="py-3 px-3 text-center align-middle">
+                <span class="inline-block w-2 h-2 rounded-full bg-amber-500" title="Nouvelle ligne"></span>
+              </td>
+
+              <!-- Date (Saisie / Sélection directe de la date) -->
+              <td class="py-3 px-3 whitespace-nowrap align-middle">
+                <input
+                  id="inline-input-date"
+                  type="date"
+                  formControlName="date"
+                  class="bg-transparent appearance-none border-none outline-none shadow-none ring-0 p-0 text-xs text-slate-700 font-mono font-medium cursor-pointer focus:ring-0 focus:outline-none"
+                  title="Choisir la date de transaction"
+                />
+              </td>
+
+              <!-- Libellé (Large et direct, 0 boîte) -->
+              <td class="py-3 px-3 align-middle">
+                <input
+                  id="inline-input-libelle"
+                  type="text"
+                  formControlName="libelle"
+                  placeholder="Ajouter une description..."
+                  class="w-full bg-transparent appearance-none border-none outline-none shadow-none ring-0 p-0 text-xs sm:text-sm font-medium text-slate-900 placeholder:text-slate-400 placeholder:italic focus:ring-0 focus:outline-none focus:border-none"
+                  [class.text-rose-600]="transactionForm.get('libelle')?.touched && transactionForm.get('libelle')?.invalid"
+                />
+              </td>
+
+              <!-- Type de Transaction (Menu Odoo natif sans boîte) -->
+              <td class="py-3 px-3 align-middle">
+                <select
+                  id="inline-select-type-tx"
+                  formControlName="typeTransaction"
+                  class="w-full bg-transparent appearance-none border-none outline-none shadow-none ring-0 p-0 text-xs sm:text-sm font-medium text-slate-800 cursor-pointer focus:ring-0 focus:outline-none"
                 >
-                  Check
-                </button>
-              </th>
-              <th scope="col" class="py-4 px-4 font-semibold text-slate-500 whitespace-nowrap w-32">Date</th>
-              <th scope="col" class="py-4 px-4 font-semibold text-slate-500 min-w-[280px] w-2/5">Libelle</th>
-              <th scope="col" class="py-4 px-4 font-semibold text-slate-500 whitespace-nowrap">
-                <div class="inline-flex items-center gap-1 cursor-pointer group">
-                  <span>Type de Transaction</span>
-                  <mat-icon class="text-xs w-4 h-4 flex items-center justify-center text-slate-400 group-hover:text-slate-600">filter_list</mat-icon>
-                </div>
-              </th>
-              <th scope="col" class="py-4 px-4 font-semibold text-slate-500 whitespace-nowrap">Distribution Analytique</th>
-              <th scope="col" class="py-4 px-4 font-semibold text-slate-500">
-                <div class="inline-flex items-center gap-1 cursor-pointer group">
-                  <span>Employe</span>
-                  <mat-icon class="text-xs w-4 h-4 flex items-center justify-center text-slate-400 group-hover:text-slate-600">filter_list</mat-icon>
-                </div>
-              </th>
-              <th scope="col" class="py-4 px-4 font-semibold text-slate-500 text-center whitespace-nowrap w-20">QTE</th>
-              <th scope="col" class="py-4 px-4 font-semibold text-slate-500 text-right whitespace-nowrap w-44">Montant</th>
-              <th scope="col" class="py-4 px-4 font-semibold text-slate-500 text-right whitespace-nowrap w-32">Soldes</th>
-            </tr>
-          </thead>
-          <tbody class="divide-y divide-slate-100">
-            <!-- LIGNE D'ÉDITION STYLE ODOO (AJOUTER UNE LIGNE / INLINE EDITABLE) -->
-            @if (isAddingRow()) {
-              <tr class="bg-amber-50/20 hover:bg-amber-50/30 transition-colors border-b border-amber-200/70 font-normal text-slate-800" id="inline-add-row" [formGroup]="transactionForm">
-                <!-- Indicateur Odoo -->
-                <td class="py-3 px-4 text-center align-middle">
-                  <span class="inline-block w-2 h-2 rounded-full bg-amber-500" title="Nouvelle ligne"></span>
-                </td>
+                  <option value="Administration">Administration</option>
+                  <option value="Opérations">Opérations</option>
+                </select>
+              </td>
 
-                <!-- Date (Saisie / Sélection directe de la date) -->
-                <td class="py-3 px-4 whitespace-nowrap align-middle">
+              <!-- Distribution Analytique (Matricule) -->
+              <td class="py-3 px-3 align-middle">
+                @if (isOperationsType()) {
                   <input
-                    id="inline-input-date"
-                    type="date"
-                    formControlName="date"
-                    class="bg-transparent appearance-none border-none outline-none shadow-none ring-0 p-0 text-xs text-slate-700 font-mono font-medium cursor-pointer focus:ring-0 focus:outline-none"
-                    title="Choisir la date de transaction"
-                  />
-                </td>
-
-                <!-- Libellé (Large et direct, 0 boîte) -->
-                <td class="py-3 px-4 align-middle">
-                  <input
-                    id="inline-input-libelle"
+                    id="inline-input-matricule"
                     type="text"
-                    formControlName="libelle"
-                    placeholder="Ajouter une description..."
-                    class="w-full bg-transparent appearance-none border-none outline-none shadow-none ring-0 p-0 text-xs sm:text-sm font-medium text-slate-900 placeholder:text-slate-400 placeholder:italic focus:ring-0 focus:outline-none focus:border-none"
-                    [class.text-rose-600]="transactionForm.get('libelle')?.touched && transactionForm.get('libelle')?.invalid"
+                    formControlName="matriculeVehicule"
+                    placeholder="Matricule..."
+                    class="w-full bg-transparent appearance-none border-none outline-none shadow-none ring-0 p-0 text-xs font-mono font-bold uppercase text-blue-900 placeholder:text-blue-300 focus:ring-0 focus:outline-none"
+                  />
+                } @else {
+                  <span class="text-xs text-slate-300 select-none italic">—</span>
+                }
+              </td>
+
+              <!-- Employé -->
+              <td class="py-3 px-3 align-middle">
+                <input
+                  id="inline-input-employee"
+                  type="text"
+                  formControlName="employee"
+                  placeholder="—"
+                  class="w-full bg-transparent appearance-none border-none outline-none shadow-none ring-0 p-0 text-xs text-slate-700 placeholder:text-slate-300 focus:ring-0 focus:outline-none"
+                />
+              </td>
+
+              <!-- Quantité (QTE) -->
+              <td class="py-3 px-3 align-middle text-center">
+                <input
+                  id="inline-input-qte"
+                  type="number"
+                  formControlName="quantity"
+                  placeholder="—"
+                  class="w-full bg-transparent appearance-none border-none outline-none shadow-none ring-0 p-0 text-xs text-center font-medium text-slate-800 placeholder:text-slate-300 focus:ring-0 focus:outline-none"
+                />
+              </td>
+
+              <!-- Montant avec Bascule Entrée / Sortie -->
+              <td class="py-3 px-3 align-middle text-right">
+                <div class="inline-flex items-center gap-1.5 justify-end">
+                  <!-- Bascule (+ / -) -->
+                  <button
+                    type="button"
+                    (click)="transactionForm.patchValue({ category: transactionForm.get('category')?.value === 'sortie' ? 'entree' : 'sortie' })"
+                    class="text-xs font-bold cursor-pointer hover:underline"
+                    [class.text-rose-600]="transactionForm.get('category')?.value === 'sortie'"
+                    [class.text-emerald-600]="transactionForm.get('category')?.value === 'entree'"
+                    title="Changer de sens (Entrée / Sortie)"
+                  >
+                    {{ transactionForm.get('category')?.value === 'sortie' ? '(-)' : '(+)' }}
+                  </button>
+                  <!-- Input Montant -->
+                  <input
+                    id="inline-input-montant"
+                    type="number"
+                    formControlName="montant"
+                    placeholder="0"
+                    class="w-24 bg-transparent appearance-none border-none outline-none shadow-none ring-0 p-0 text-xs sm:text-sm text-right font-bold text-slate-900 placeholder:text-slate-300 focus:ring-0 focus:outline-none"
+                  />
+                  <span class="text-xs text-slate-400">FCFA</span>
+                </div>
+              </td>
+
+              <!-- Actions directes style Odoo -->
+              <td class="py-3 px-3 whitespace-nowrap text-right align-middle">
+                <div class="inline-flex items-center gap-1.5 justify-end">
+                  <button
+                    id="inline-save-btn"
+                    type="button"
+                    (click)="submitInlineTransaction()"
+                    [disabled]="isSubmitting()"
+                    class="text-emerald-600 hover:text-emerald-800 p-1 rounded hover:bg-emerald-50 transition-colors cursor-pointer disabled:opacity-40"
+                    title="Sauvegarder la ligne"
+                    aria-label="Sauvegarder la ligne"
+                  >
+                    <mat-icon class="text-base w-5 h-5 flex items-center justify-center">check_circle</mat-icon>
+                  </button>
+                  <button
+                    id="inline-cancel-btn"
+                    type="button"
+                    (click)="cancelAddInline()"
+                    class="text-slate-400 hover:text-rose-600 p-1 rounded hover:bg-rose-50 transition-colors cursor-pointer"
+                    title="Supprimer la ligne"
+                    aria-label="Supprimer la ligne"
+                  >
+                    <mat-icon class="text-base w-5 h-5 flex items-center justify-center">delete_outline</mat-icon>
+                  </button>
+                </div>
+              </td>
+            </tr>
+          }
+
+          @if (isLoading() && pagedTransactions().length === 0) {
+            <tr>
+              <td colspan="9" class="py-12 text-center text-slate-400 text-sm">
+                <div class="inline-flex items-center gap-2">
+                  <mat-icon class="animate-spin text-blue-600 text-lg">refresh</mat-icon>
+                  <span>Chargement des transactions depuis la base de données...</span>
+                </div>
+              </td>
+            </tr>
+          } @else {
+            @for (tx of pagedTransactions(); track trackByTxId($index, tx)) {
+              <tr class="hover:bg-slate-100/40 transition-colors group">
+                <td class="py-4 px-3 text-center">
+                  <input
+                    type="checkbox"
+                    [checked]="tx.selected"
+                    (change)="onToggleSelect(tx)"
+                    aria-label="Sélectionner la transaction"
+                    class="w-4 h-4 text-blue-600 rounded border-slate-300 focus:ring-blue-500 cursor-pointer"
                   />
                 </td>
-
-                <!-- Type de Transaction (Menu Odoo natif sans boîte) -->
-                <td class="py-3 px-4 align-middle">
-                  <select
-                    id="inline-select-type-tx"
-                    formControlName="typeTransaction"
-                    class="w-full bg-transparent appearance-none border-none outline-none shadow-none ring-0 p-0 text-xs sm:text-sm font-medium text-slate-800 cursor-pointer focus:ring-0 focus:outline-none"
-                  >
-                    <option value="Administration">Administration</option>
-                    <option value="Opérations">Opérations</option>
-                  </select>
+                <td class="py-4 px-3 whitespace-nowrap text-slate-700 font-medium">{{ tx.date }}</td>
+                <td class="py-4 px-3 text-slate-800 font-medium">{{ tx.libelle }}</td>
+                <td class="py-4 px-3">
+                  <div class="flex flex-col">
+                    <span class="text-slate-800 font-medium">{{ tx.typeTransaction }}</span>
+                    @if (tx.typeDescription) {
+                      <span class="text-xs text-slate-400 mt-0.5">{{ tx.typeDescription }}</span>
+                    }
+                  </div>
                 </td>
-
-                <!-- Distribution Analytique (Matricule) -->
-                <td class="py-3 px-4 align-middle">
-                  @if (isOperationsType()) {
-                    <input
-                      id="inline-input-matricule"
-                      type="text"
-                      formControlName="matriculeVehicule"
-                      placeholder="Matricule..."
-                      class="w-full bg-transparent appearance-none border-none outline-none shadow-none ring-0 p-0 text-xs font-mono font-bold uppercase text-blue-900 placeholder:text-blue-300 focus:ring-0 focus:outline-none"
-                    />
+                <td class="py-4 px-3 whitespace-nowrap">
+                  @if (tx.matriculeVehicule) {
+                    <span class="font-mono text-xs font-bold text-blue-800 bg-blue-50/80 px-2 py-1 rounded border border-blue-200">
+                      {{ tx.matriculeVehicule }}
+                    </span>
                   } @else {
-                    <span class="text-xs text-slate-300 select-none italic">—</span>
+                    <span class="text-slate-400 text-xs">—</span>
                   }
                 </td>
-
-                <!-- Employé -->
-                <td class="py-3 px-4 align-middle">
-                  <input
-                    id="inline-input-employee"
-                    type="text"
-                    formControlName="employee"
-                    placeholder="—"
-                    class="w-full bg-transparent appearance-none border-none outline-none shadow-none ring-0 p-0 text-xs text-slate-700 placeholder:text-slate-300 focus:ring-0 focus:outline-none"
-                  />
+                <td class="py-4 px-3 whitespace-nowrap text-slate-500">{{ tx.employee || '—' }}</td>
+                <td class="py-4 px-3 text-center text-slate-500 whitespace-nowrap">
+                  {{ tx.quantity !== undefined ? tx.quantity : '' }}
                 </td>
-
-                <!-- Quantité (QTE) -->
-                <td class="py-3 px-4 align-middle text-center">
-                  <input
-                    id="inline-input-qte"
-                    type="number"
-                    formControlName="quantity"
-                    placeholder="—"
-                    class="w-full bg-transparent appearance-none border-none outline-none shadow-none ring-0 p-0 text-xs text-center font-medium text-slate-800 placeholder:text-slate-300 focus:ring-0 focus:outline-none"
-                  />
+                <td class="py-4 px-3 text-right whitespace-nowrap font-medium">
+                  @if (tx.montant < 0) {
+                    <span class="text-rose-500">{{ formatCurrency(tx.montant) }}</span>
+                  } @else {
+                    <span class="text-slate-800">{{ formatCurrency(tx.montant) }}</span>
+                  }
                 </td>
-
-                <!-- Montant avec Bascule Entrée / Sortie -->
-                <td class="py-3 px-4 align-middle text-right">
-                  <div class="inline-flex items-center gap-1.5 justify-end">
-                    <!-- Bascule (+ / -) -->
-                    <button
-                      type="button"
-                      (click)="transactionForm.patchValue({ category: transactionForm.get('category')?.value === 'sortie' ? 'entree' : 'sortie' })"
-                      class="text-xs font-bold cursor-pointer hover:underline"
-                      [class.text-rose-600]="transactionForm.get('category')?.value === 'sortie'"
-                      [class.text-emerald-600]="transactionForm.get('category')?.value === 'entree'"
-                      title="Changer de sens (Entrée / Sortie)"
-                    >
-                      {{ transactionForm.get('category')?.value === 'sortie' ? '(-)' : '(+)' }}
-                    </button>
-                    <!-- Input Montant -->
-                    <input
-                      id="inline-input-montant"
-                      type="number"
-                      formControlName="montant"
-                      placeholder="0"
-                      class="w-24 bg-transparent appearance-none border-none outline-none shadow-none ring-0 p-0 text-xs sm:text-sm text-right font-bold text-slate-900 placeholder:text-slate-300 focus:ring-0 focus:outline-none"
-                    />
-                    <span class="text-xs text-slate-400">FCFA</span>
-                  </div>
-                </td>
-
-                <!-- Actions directes style Odoo -->
-                <td class="py-3 px-4 whitespace-nowrap text-right align-middle">
-                  <div class="inline-flex items-center gap-1.5 justify-end">
-                    <button
-                      id="inline-save-btn"
-                      type="button"
-                      (click)="submitInlineTransaction()"
-                      [disabled]="isSubmitting()"
-                      class="text-emerald-600 hover:text-emerald-800 p-1 rounded hover:bg-emerald-50 transition-colors cursor-pointer disabled:opacity-40"
-                      title="Sauvegarder la ligne"
-                      aria-label="Sauvegarder la ligne"
-                    >
-                      <mat-icon class="text-base w-5 h-5 flex items-center justify-center">check_circle</mat-icon>
-                    </button>
-                    <button
-                      id="inline-cancel-btn"
-                      type="button"
-                      (click)="cancelAddInline()"
-                      class="text-slate-400 hover:text-rose-600 p-1 rounded hover:bg-rose-50 transition-colors cursor-pointer"
-                      title="Supprimer la ligne"
-                      aria-label="Supprimer la ligne"
-                    >
-                      <mat-icon class="text-base w-5 h-5 flex items-center justify-center">delete_outline</mat-icon>
-                    </button>
-                  </div>
+                <td class="py-4 px-3 text-right whitespace-nowrap font-medium text-slate-800">
+                  {{ tx.soldeApres !== undefined ? formatCurrency(tx.soldeApres) : '—' }}
                 </td>
               </tr>
-            }
-
-            @if (isLoading() && pagedTransactions().length === 0) {
-              <tr>
-                <td colspan="9" class="py-12 text-center text-slate-400 text-sm">
-                  <div class="inline-flex items-center gap-2">
-                    <mat-icon class="animate-spin text-blue-600 text-lg">refresh</mat-icon>
-                    <span>Chargement des transactions depuis la base de données...</span>
-                  </div>
-                </td>
-              </tr>
-            } @else {
-              @for (tx of pagedTransactions(); track trackByTxId($index, tx)) {
-                <tr class="hover:bg-slate-50/60 transition-colors group">
-                  <td class="py-5 px-4 text-center">
-                    <input
-                      type="checkbox"
-                      [checked]="tx.selected"
-                      (change)="onToggleSelect(tx)"
-                      aria-label="Sélectionner la transaction"
-                      class="w-4 h-4 text-blue-600 rounded border-slate-300 focus:ring-blue-500 cursor-pointer"
-                    />
-                  </td>
-                  <td class="py-5 px-4 whitespace-nowrap text-slate-700 font-medium">{{ tx.date }}</td>
-                  <td class="py-5 px-4 text-slate-800 font-medium whitespace-nowrap">{{ tx.libelle }}</td>
-                  <td class="py-5 px-4">
-                    <div class="flex flex-col">
-                      <span class="text-slate-800 font-medium">{{ tx.typeTransaction }}</span>
-                      @if (tx.typeDescription) {
-                        <span class="text-xs text-slate-400 mt-0.5">{{ tx.typeDescription }}</span>
-                      }
-                    </div>
-                  </td>
-                  <td class="py-5 px-4 whitespace-nowrap">
-                    @if (tx.matriculeVehicule) {
-                      <span class="font-mono text-xs font-bold text-blue-800 bg-blue-50/80 px-2 py-1 rounded border border-blue-200">
-                        {{ tx.matriculeVehicule }}
-                      </span>
-                    } @else {
-                      <span class="text-slate-400 text-xs">—</span>
-                    }
-                  </td>
-                  <td class="py-5 px-4 whitespace-nowrap text-slate-500">{{ tx.employee || '—' }}</td>
-                  <td class="py-5 px-4 text-center text-slate-500 whitespace-nowrap">
-                    {{ tx.quantity !== undefined ? tx.quantity : '' }}
-                  </td>
-                  <td class="py-5 px-4 text-right whitespace-nowrap font-medium">
-                    @if (tx.montant < 0) {
-                      <span class="text-rose-500">{{ formatCurrency(tx.montant) }}</span>
-                    } @else {
-                      <span class="text-slate-800">{{ formatCurrency(tx.montant) }}</span>
-                    }
-                  </td>
-                  <td class="py-5 px-4 text-right whitespace-nowrap font-medium text-slate-800">
-                    {{ tx.soldeApres !== undefined ? formatCurrency(tx.soldeApres) : '—' }}
+            } @empty {
+              @if (!isAddingRow()) {
+                <tr>
+                  <td colspan="9" class="py-12 text-center text-slate-400 text-sm">
+                    Aucune transaction dans la base de données. Cliquez sur <strong>Nouveau</strong> pour enregistrer la première opération.
                   </td>
                 </tr>
-              } @empty {
-                @if (!isAddingRow()) {
-                  <tr>
-                    <td colspan="9" class="py-12 text-center text-slate-400 text-sm">
-                      Aucune transaction dans la base de données. Cliquez sur <strong>Nouveau</strong> ou <strong>Ajouter une ligne</strong> pour enregistrer la première opération.
-                    </td>
-                  </tr>
-                }
               }
             }
-          </tbody>
-        </table>
-      </div>
-
-      <!-- Bouton / Lien discret Odoo en bas de liste "Ajouter une ligne" -->
-      @if (canEdit() && !isAddingRow()) {
-        <div class="p-3 bg-slate-50/50 border-t border-slate-100 flex items-center">
-          <button
-            type="button"
-            (click)="startAddInline()"
-            class="text-xs sm:text-sm font-semibold text-blue-600 hover:text-blue-800 flex items-center gap-1.5 transition-colors cursor-pointer"
-          >
-            <mat-icon class="text-sm w-4 h-4 flex items-center justify-center">add</mat-icon>
-            <span>Ajouter une ligne</span>
-          </button>
-        </div>
-      }
+          }
+        </tbody>
+      </table>
     </div>
 
   </div>

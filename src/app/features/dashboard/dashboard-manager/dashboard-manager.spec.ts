@@ -57,7 +57,7 @@ describe('DashboardManager', () => {
   const cashierServiceMock = {
     allTransactions: transactionsSignal,
     currentBalance: balanceSignal,
-    loadTransactions: jasmine.createSpy('loadTransactions').and.returnValue(Promise.resolve()),
+    loadTransactions: () => Promise.resolve(),
   };
 
   beforeEach(async () => {
@@ -84,27 +84,31 @@ describe('DashboardManager', () => {
     expect(component.formatCurrency(450000)).toContain('FCFA');
   });
 
-  it('should compute chart points and paths correctly', () => {
-    expect(component.chartPoints().length).toBe(2);
-    expect(component.chartLinePath()).toContain('M');
-    expect(component.chartAreaPath()).toContain('Z');
+  it('should compute chart timeline data correctly from transactions', () => {
+    const data = component.chartData();
+    expect(data.labels.length).toBe(2);
+    expect(data.balances.length).toBe(2);
+    expect(data.balances[0]).toBe(500000);
+    expect(data.balances[1]).toBe(450000);
+    expect(data.descriptions[0]).toBe('Approvisionnement caisse');
   });
 
-  it('should handle chart mouse enter and leave events for tooltip', () => {
-    const mockEvent = {
-      currentTarget: {
-        getBoundingClientRect: () => ({ left: 0, top: 0, width: 600, height: 240 }),
-      },
-      clientX: 300,
-      clientY: 100,
-    } as unknown as MouseEvent;
+  it('should handle empty transactions gracefully with default chart data', () => {
+    transactionsSignal.set([]);
+    fixture.detectChanges();
 
-    component.onChartMouseMove(mockEvent);
-    expect(component.hoveredPoint()).not.toBeNull();
+    const data = component.chartData();
+    expect(data.labels).toEqual(['Départ', 'Aujourd’hui']);
+    expect(data.balances).toEqual([0, 0]);
 
-    component.onChartMouseLeave();
-    expect(component.hoveredPoint()).toBeNull();
+    // Restore transactions
+    transactionsSignal.set(mockTransactions);
+  });
+
+  it('should clean up chart instance on destroy without throwing', () => {
+    expect(() => component.ngOnDestroy()).not.toThrow();
   });
 });
+
 
 

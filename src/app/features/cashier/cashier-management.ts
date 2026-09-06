@@ -39,6 +39,12 @@ export class CashierManagement implements OnInit {
     return role === 'admin' || role === 'caissiere';
   });
 
+  // Visibilité du bouton Tableau de bord : réservé à manager et admin
+  public readonly canViewDashboardButton = computed(() => {
+    const role = this.authService.currentUser()?.role;
+    return role === 'manager' || role === 'admin';
+  });
+
   // Données réactives issues du service
   public readonly pagedTransactions = this.cashierService.pagedTransactions;
   public readonly currentBalance = this.cashierService.currentBalance;

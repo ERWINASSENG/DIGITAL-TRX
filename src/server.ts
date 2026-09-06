@@ -363,7 +363,23 @@ app.post('/api/system/collaborators', async (req, res) => {
       .upsert(profilePayload);
 
     if (profileError) {
-      console.warn('Avertissement synchronisation profiles:', profileError.message);
+      console.error('Échec synchronisation profiles:', profileError.message);
+      res.status(207).json({
+        user: {
+          id: authUserId,
+          email,
+          firstName: firstName || '',
+          lastName: lastName || '',
+          displayName: computedDisplayName,
+          role: computedRole,
+          department: department || 'Direction Générale',
+          phone: phone || '',
+          isActive: isActive !== undefined ? isActive : true,
+          createdAt: new Date().toISOString(),
+        },
+        warning: `Compte Auth créé mais la synchronisation du profil public a rencontré une erreur: ${profileError.message}`,
+      });
+      return;
     }
 
     res.status(201).json({

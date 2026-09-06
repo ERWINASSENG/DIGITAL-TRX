@@ -3,3 +3,17 @@
   width: 100%;
 }
 
+#caisse-chart-wrapper {
+  position: relative;
+  width: 100%;
+  min-height: 12rem;
+
+  canvas {
+    display: block;
+    width: 100% !important;
+    height: 100% !important;
+  }
+}
+
+
+
