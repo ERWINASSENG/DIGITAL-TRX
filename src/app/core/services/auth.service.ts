@@ -5,8 +5,6 @@ import { LoginCredentials, UserProfile, UserRole } from '../models/auth.model';
 import { SupabaseService } from './supabase.service';
 import { normalizeUserRole } from '../utils/role.utils';
 
-// Clé résiduelle utilisée uniquement pour la purge défensive
-const LEGACY_SESSION_STORAGE_KEY = 'transmex_auth_session';
 const CACHED_PROFILE_KEY = 'transmex_user_profile';
 
 @Injectable({
@@ -21,34 +19,24 @@ export class AuthService {
   private sessionRestoredResolver!: () => void;
   public readonly sessionRestoredPromise: Promise<void>;
 
-  /**
-   * Helper robuste tolérant à la fois les signaux et les valeurs primitives (notamment dans les mocks de test)
-   */
-  private checkSupabaseConfigured(): boolean {
-    const configured = this.supabaseService.isConfigured;
-    if (typeof configured === 'function') {
-      return configured();
-    }
-    return Boolean(configured);
-  }
-
-  // Signaux réactifs pour l'état d'authentification (Strictement en mémoire volatile)
+  // Signaux réactifs d'état d'authentification
   private readonly _currentUser = signal<UserProfile | null>(null);
   private readonly _token = signal<string | null>(null);
   private readonly _isLoading = signal<boolean>(false);
   private readonly _authError = signal<string | null>(null);
 
-  // Protection contre les attaques par force brute
+  // Protection contre le force-brute
   private readonly loginAttempts = new Map<string, { count: number; lastAttempt: number }>();
   private readonly LOGIN_ATTEMPT_LIMIT = 5;
-  private readonly LOGIN_LOCKOUT_MS = 15 * 60 * 1000; // 15 minutes de verrouillage
+  private readonly LOGIN_LOCKOUT_MS = 15 * 60 * 1000;
 
-  // Signaux publics dérivés
+  // Exposition en lecture seule des Signaux réactifs
   public readonly currentUser = this._currentUser.asReadonly();
   public readonly token = this._token.asReadonly();
   public readonly isLoading = this._isLoading.asReadonly();
   public readonly authError = this._authError.asReadonly();
 
+  // Signaux dérivés réactifs
   public readonly isAuthenticated = computed(() => this._currentUser() !== null);
   public readonly currentRole = computed<UserRole | null>(() => this._currentUser()?.role ?? null);
   public readonly isAdmin = computed(() => this._currentUser()?.role === 'admin');
@@ -61,23 +49,38 @@ export class AuthService {
       this.sessionRestoredResolver = resolve;
     });
 
-    this.purgeLegacyStorageTokens();
     this.restoreCachedProfile();
     this.restoreSession();
     this.listenToAuthChanges();
   }
 
+  private checkSupabaseConfigured(): boolean {
+    const configured = this.supabaseService.isConfigured;
+    if (typeof configured === 'function') {
+      return configured();
+    }
+    return Boolean(configured);
+  }
+
   /**
-   * Garantit la fin de la tentative de restauration de session avant toute navigation
+   * Attend la résolution initiale du chargement/restauration de la session.
+   * Requis par l'AuthGuard pour éviter les clignotements de redirection.
    */
-  public async ensureSessionRestored(): Promise<void> {
+  public async waitForSession(): Promise<void> {
     if (this.sessionRestoredPromise) {
       await this.sessionRestoredPromise;
     }
   }
 
   /**
-   * Restaure le profil utilisateur immédiatement depuis le localStorage
+   * Alias de prévenance pour rétrocompatibilité
+   */
+  public async ensureSessionRestored(): Promise<void> {
+    return this.waitForSession();
+  }
+
+  /**
+   * Restaure le profil depuis localStorage pour un affichage instantané
    */
   private restoreCachedProfile(): void {
     if (this.isBrowser && typeof window !== 'undefined' && window.localStorage) {
@@ -90,7 +93,7 @@ export class AuthService {
           }
         }
       } catch {
-        // Ignorer
+        // Ignorer les exceptions de localStorage
       }
     }
   }
@@ -109,7 +112,6 @@ export class AuthService {
     if (this.isBrowser && typeof window !== 'undefined' && window.localStorage) {
       try {
         localStorage.removeItem(CACHED_PROFILE_KEY);
-        localStorage.removeItem(LEGACY_SESSION_STORAGE_KEY);
       } catch {
         // Ignorer
       }
@@ -117,26 +119,13 @@ export class AuthService {
   }
 
   /**
-   * Purge défensive des anciens tokens JWT éventuellement présents dans localStorage
-   */
-  private purgeLegacyStorageTokens(): void {
-    if (this.isBrowser && typeof window !== 'undefined' && window.localStorage) {
-      try {
-        localStorage.removeItem(LEGACY_SESSION_STORAGE_KEY);
-      } catch {
-        // Ignorer si localStorage restreint
-      }
-    }
-  }
-
-  /**
-   * Écoute les changements d'état d'authentification Supabase
+   * Écoute les événements Supabase (onAuthStateChange) pour synchroniser le Signal _currentUser.
    */
   private listenToAuthChanges(): void {
     if (this.checkSupabaseConfigured() && this.supabaseService.supabase) {
       try {
         this.supabaseService.supabase.auth.onAuthStateChange(async (event, session) => {
-          if (event === 'SIGNED_IN' && session?.user) {
+          if ((event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED' || event === 'USER_UPDATED') && session?.user) {
             await this.loadUserProfileFromSupabase(
               session.user.id,
               session.user.email || '',
@@ -148,14 +137,43 @@ export class AuthService {
           }
         });
       } catch {
-        // Ignorer si échec d'écoute
+        // Ignorer les erreurs de souscription
       }
     }
   }
 
   /**
-   * Récupère le profil complet depuis la table public.profiles
-   * et extrait le rôle de manière étanche depuis app_metadata
+   * Restaure la session au démarrage depuis Supabase SDK.
+   */
+  public async restoreSession(): Promise<void> {
+    try {
+      await this.supabaseService.ensureInitialized();
+
+      if (this.checkSupabaseConfigured() && this.supabaseService.supabase) {
+        const { data } = await this.supabaseService.supabase.auth.getSession();
+        if (data.session?.user) {
+          const profile = await this.loadUserProfileFromSupabase(
+            data.session.user.id,
+            data.session.user.email || '',
+            data.session.access_token,
+            data.session.user
+          );
+          if (profile && !profile.isActive) {
+            this.clearLocalSession();
+          }
+        } else if (!this._currentUser()) {
+          this.clearLocalSession();
+        }
+      }
+    } catch {
+      // Conserver l'état en mémoire en cas de défaillance réseau
+    } finally {
+      this.sessionRestoredResolver?.();
+    }
+  }
+
+  /**
+   * Charge le profil complet de l'utilisateur depuis Supabase public.profiles.
    */
   private async loadUserProfileFromSupabase(
     userId: string,
@@ -172,19 +190,12 @@ export class AuthService {
         .eq('id', userId)
         .maybeSingle();
 
-      // Priorité étanche au rôle app_metadata (inaltérable par l'utilisateur)
       const appRole = authUser?.app_metadata?.['role'] as UserRole | undefined;
       const userMetaRole = authUser?.user_metadata?.['role'] as UserRole | undefined;
       const profileRole = profile?.role as UserRole | undefined;
 
-      // Priorité étanche au rôle app_metadata (inaltérable par l'utilisateur), puis profiles, puis user_metadata
       const rawRole = appRole || profileRole || userMetaRole;
       const resolvedRole: UserRole = normalizeUserRole(rawRole);
-
-      // Si la base contient un rôle legacy ou désynchronisé, on met à jour le profil de manière asynchrone sécurisée
-      if (profile && profile.role !== resolvedRole) {
-        this.syncProfileRole(userId, resolvedRole);
-      }
 
       const userProfile: UserProfile = {
         id: userId,
@@ -209,94 +220,7 @@ export class AuthService {
   }
 
   /**
-   * Resynchronise le rôle dans public.profiles de manière asynchrone et sécurisée.
-   */
-  private async syncProfileRole(userId: string, resolvedRole: UserRole): Promise<void> {
-    try {
-      if (!this.supabaseService.supabase) return;
-      const { error } = await this.supabaseService.supabase
-        .from('profiles')
-        .update({ role: resolvedRole })
-        .eq('id', userId);
-
-      if (error) {
-        console.error('Échec de la resynchronisation du rôle de profil:', error.message);
-      }
-    } catch (err: unknown) {
-      console.error('Erreur inattendue lors de la resynchronisation du rôle:', err);
-    }
-  }
-
-  /**
-   * Restaure la session depuis les cookies Supabase SSR (fonctionne en SSR et sur le navigateur)
-   */
-  public async restoreSession(): Promise<void> {
-    try {
-      await this.supabaseService.ensureInitialized();
-
-      if (this.checkSupabaseConfigured() && this.supabaseService.supabase) {
-        const { data } = await this.supabaseService.supabase.auth.getSession();
-        if (data.session?.user) {
-          const profile = await this.loadUserProfileFromSupabase(
-            data.session.user.id,
-            data.session.user.email || '',
-            data.session.access_token,
-            data.session.user
-          );
-          if (profile && !profile.isActive) {
-            this.clearLocalSession();
-          }
-        } else if (!this._currentUser()) {
-          this.clearLocalSession();
-        }
-      }
-    } catch {
-      // En cas d'erreur de réseau ou de serveur, conserver l'état en mémoire
-    } finally {
-      this.sessionRestoredResolver?.();
-    }
-  }
-
-  /**
-   * Vérifie les quotas de tentatives de connexion pour limiter les attaques par force brute
-   */
-  private checkRateLimit(email: string): { allowed: boolean; remainingMinutes?: number } {
-    const now = Date.now();
-    const record = this.loginAttempts.get(email);
-
-    if (!record) {
-      return { allowed: true };
-    }
-
-    if (now - record.lastAttempt > this.LOGIN_LOCKOUT_MS) {
-      this.loginAttempts.delete(email);
-      return { allowed: true };
-    }
-
-    if (record.count >= this.LOGIN_ATTEMPT_LIMIT) {
-      const remainingMinutes = Math.ceil((this.LOGIN_LOCKOUT_MS - (now - record.lastAttempt)) / 60000);
-      return { allowed: false, remainingMinutes };
-    }
-
-    return { allowed: true };
-  }
-
-  private recordFailedAttempt(email: string): void {
-    const now = Date.now();
-    const record = this.loginAttempts.get(email);
-    if (!record || now - record.lastAttempt > this.LOGIN_LOCKOUT_MS) {
-      this.loginAttempts.set(email, { count: 1, lastAttempt: now });
-    } else {
-      this.loginAttempts.set(email, { count: record.count + 1, lastAttempt: now });
-    }
-  }
-
-  private resetLoginAttempts(email: string): void {
-    this.loginAttempts.delete(email);
-  }
-
-  /**
-   * Connexion sécurisée par email et mot de passe via Supabase Auth
+   * Connexion via Supabase Auth (signInWithPassword).
    */
   public async login(credentials: LoginCredentials): Promise<{ success: boolean; error?: string }> {
     this._isLoading.set(true);
@@ -305,23 +229,11 @@ export class AuthService {
     const email = credentials.email.trim().toLowerCase();
     const password = credentials.password;
 
-    // Protection anti force-brute
-    const rateLimit = this.checkRateLimit(email);
-    if (!rateLimit.allowed) {
-      const errorMsg = `Trop de tentatives échouées pour ce compte. Veuillez patienter ${rateLimit.remainingMinutes} minute(s) avant de réessayer.`;
-      this._authError.set(errorMsg);
-      this._isLoading.set(false);
-      return { success: false, error: errorMsg };
-    }
-
     try {
-      // S'assurer que le client Supabase a résolu sa configuration (TransferState ou API)
       await this.supabaseService.ensureInitialized();
 
       if (!this.checkSupabaseConfigured() || !this.supabaseService.supabase) {
-        throw new Error(
-          "Le service Supabase n'est pas configuré. Veuillez renseigner SUPABASE_URL et SUPABASE_ANON_KEY."
-        );
+        throw new Error("Le service Supabase n'est pas configuré.");
       }
 
       const { data, error } = await this.supabaseService.supabase.auth.signInWithPassword({
@@ -330,12 +242,11 @@ export class AuthService {
       });
 
       if (error) {
-        this.recordFailedAttempt(email);
         let friendlyError = error.message;
         if (error.message.includes('Invalid login credentials')) {
           friendlyError = 'Identifiants invalides : email ou mot de passe incorrect.';
-        } else if (error.message.includes('Email not confirmed')) {
-          friendlyError = "L'adresse email n'a pas encore été confirmée dans Supabase.";
+        } else if (error.message.toLowerCase().includes('rate limit') || error.message.toLowerCase().includes('rate exceeded') || error.message.toLowerCase().includes('too many requests')) {
+          friendlyError = 'Limite de tentatives atteinte sur le serveur Supabase. Veuillez patienter un instant avant de réessayer.';
         }
         throw new Error(friendlyError);
       }
@@ -344,29 +255,28 @@ export class AuthService {
         const profile = await this.loadUserProfileFromSupabase(
           data.user.id,
           data.user.email || email,
-          data.session?.access_token || 'supabase-token',
+          data.session?.access_token || '',
           data.user
         );
 
         if (!profile) {
-          throw new Error('Profil utilisateur introuvable dans la base de données.');
+          throw new Error('Profil utilisateur introuvable.');
         }
 
         if (!profile.isActive) {
           await this.supabaseService.supabase.auth.signOut();
           this.clearLocalSession();
-          throw new Error('Ce compte utilisateur a été désactivé. Veuillez contacter un administrateur.');
+          throw new Error('Ce compte utilisateur a été désactivé.');
         }
 
-        this.resetLoginAttempts(email);
         this._isLoading.set(false);
-        this.redirectAfterLogin();
+        this.router.navigate(['/dashboard']);
         return { success: true };
       }
 
-      throw new Error('Identifiants invalides ou échec de connexion.');
+      throw new Error('Échec de la connexion.');
     } catch (err: unknown) {
-      const errMessage = err instanceof Error ? err.message : 'Une erreur est survenue lors de la connexion';
+      const errMessage = err instanceof Error ? err.message : 'Erreur de connexion';
       this._authError.set(errMessage);
       this._isLoading.set(false);
       return { success: false, error: errMessage };
@@ -374,7 +284,7 @@ export class AuthService {
   }
 
   /**
-   * Inscription d'un nouvel utilisateur dans Supabase Auth
+   * Inscription d'un utilisateur dans Supabase Auth
    */
   public async signUp(email: string, password: string, profileData: Partial<UserProfile>): Promise<{ success: boolean; error?: string }> {
     this._isLoading.set(true);
@@ -390,7 +300,6 @@ export class AuthService {
               first_name: profileData.firstName,
               last_name: profileData.lastName,
               role: profileData.role || 'employe',
-              department: profileData.department || 'Services Généraux',
             },
           },
         });
@@ -398,17 +307,13 @@ export class AuthService {
         if (error) throw error;
 
         if (data.user) {
-          // Création correspondante dans public.profiles
           await this.supabaseService.supabase.from('profiles').upsert({
             id: data.user.id,
             email: email.trim().toLowerCase(),
             first_name: profileData.firstName || '',
             last_name: profileData.lastName || '',
             role: profileData.role || 'employe',
-            department: profileData.department || 'Services Généraux',
             is_active: true,
-            created_at: new Date().toISOString(),
-            updated_at: new Date().toISOString(),
           });
         }
       }
@@ -416,21 +321,19 @@ export class AuthService {
       this._isLoading.set(false);
       return { success: true };
     } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : "Erreur lors de la création du compte";
+      let msg = err instanceof Error ? err.message : 'Erreur lors de l’inscription';
+      if (msg.toLowerCase().includes('rate limit') || msg.toLowerCase().includes('rate exceeded') || msg.toLowerCase().includes('too many requests')) {
+        msg = 'Limite d’envois/inscriptions atteinte sur Supabase. Veuillez patienter un court instant avant de réessayer.';
+      }
       this._authError.set(msg);
       this._isLoading.set(false);
       return { success: false, error: msg };
     }
   }
 
-  /**
-   * Vérifie si l'utilisateur connecté possède un rôle donné
-   */
   public hasRole(requiredRoles: UserRole | UserRole[]): boolean {
     const current = this._currentUser();
     if (!current || !current.isActive) return false;
-    
-    // L'administrateur a un accès complet universel
     if (current.role === 'admin') return true;
 
     const rolesArray = Array.isArray(requiredRoles) ? requiredRoles : [requiredRoles];
@@ -438,14 +341,14 @@ export class AuthService {
   }
 
   /**
-   * Déconnexion sécurisée et réinitialisation de session
+   * Déconnexion sécurisée : appelle signOut(), réinitialise le Signal et redirige vers /auth/login.
    */
   public async logout(): Promise<void> {
     if (this.supabaseService.supabase) {
       try {
         await this.supabaseService.supabase.auth.signOut();
       } catch {
-        // Ignorer en mode local
+        // Ignorer
       }
     }
 
@@ -453,9 +356,6 @@ export class AuthService {
     this.router.navigate(['/auth/login']);
   }
 
-  /**
-   * Efface la session locale et le cache du profil
-   */
   private clearLocalSession(): void {
     this.clearCachedProfile();
     this._currentUser.set(null);
@@ -463,21 +363,10 @@ export class AuthService {
     this._authError.set(null);
   }
 
-  /**
-   * Enregistre la session active et met en cache le profil utilisateur
-   */
   public setLocalSession(user: UserProfile, token: string): void {
     this.saveCachedProfile(user);
     this._currentUser.set(user);
     this._token.set(token);
     this._authError.set(null);
   }
-
-  /**
-   * Redirection post-authentification
-   */
-  private redirectAfterLogin(): void {
-    this.router.navigate(['/dashboard']);
-  }
 }
-

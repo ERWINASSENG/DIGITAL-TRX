@@ -1,4 +1,4 @@
-import { Injectable, PLATFORM_ID, inject, signal, makeStateKey, TransferState, REQUEST } from '@angular/core';
+import { Injectable, PLATFORM_ID, inject, signal, makeStateKey, TransferState } from '@angular/core';
 import { isPlatformBrowser } from '@angular/common';
 import { createBrowserClient, createServerClient } from '@supabase/ssr';
 import { SupabaseClient } from '@supabase/supabase-js';
@@ -10,20 +10,6 @@ export interface SupabaseConfig {
 
 const SUPABASE_CONFIG_KEY = makeStateKey<SupabaseConfig>('supabase.config');
 
-/**
- * Utilitaire pour découper un en-tête Cookie HTTP en un tableau { name, value }
- */
-function parseCookieHeader(cookieHeader: string | null | undefined): { name: string; value: string }[] {
-  if (!cookieHeader) return [];
-  return cookieHeader
-    .split(';')
-    .map((cookie) => {
-      const [name, ...rest] = cookie.trim().split('=');
-      return { name: name.trim(), value: rest.join('=').trim() };
-    })
-    .filter((c) => c.name.length > 0);
-}
-
 @Injectable({
   providedIn: 'root',
 })
@@ -31,9 +17,6 @@ export class SupabaseService {
   private readonly platformId = inject(PLATFORM_ID);
   private readonly isBrowser = isPlatformBrowser(this.platformId);
   private readonly transferState = inject(TransferState);
-
-  // Injection optionnelle de la requête HTTP entrante côté serveur (SSR)
-  private readonly req = inject(REQUEST, { optional: true }) as { headers?: { get?: (name: string) => string | null; cookie?: string } } | null;
 
   private client: SupabaseClient | null = null;
   private readonly _isConfigured = signal<boolean>(false);
@@ -48,10 +31,14 @@ export class SupabaseService {
     this.initSupabaseClient();
   }
 
+  public get supabase(): SupabaseClient | null {
+    return this.client;
+  }
+
   /**
-   * Initialise le client Supabase compatible SSR avec cookies HTTP :
-   * 1. Côté serveur (SSR) : lit process.env, utilise createServerClient avec extraction des cookies de la requête HTTP.
-   * 2. Côté client : lit d'abord TransferState, utilise createBrowserClient (synchro document.cookie).
+   * Initialise le client Supabase compatible SSR avec cookies HTTP et persistance :
+   * 1. Côté serveur (SSR) : lit process.env, utilise createServerClient avec extraction des cookies de la requête.
+   * 2. Côté client : lit TransferState/API, utilise createBrowserClient avec persistSession et autoRefreshToken.
    */
   public initSupabaseClient(): void {
     let url = '';
@@ -112,7 +99,7 @@ export class SupabaseService {
           }
         }
       } catch {
-        // En cas d'erreur de requête
+        // En cas d'erreur de réseau
       }
 
       return this._isConfigured();
@@ -139,27 +126,33 @@ export class SupabaseService {
     if (isValid) {
       try {
         if (this.isBrowser) {
-          // Client Navigateur : createBrowserClient gère automatiquement document.cookie
-          this.client = createBrowserClient(url, key);
+          // Client Navigateur : createBrowserClient gère document.cookie + localStorage avec rafraîchissement automatique
+          this.client = createBrowserClient(url, key, {
+            auth: {
+              persistSession: true,
+              autoRefreshToken: true,
+              detectSessionInUrl: true,
+              flowType: 'pkce',
+            },
+            cookieOptions: {
+              name: 'sb-auth-token',
+              maxAge: 365 * 24 * 60 * 60,
+              domain: '',
+              sameSite: 'lax',
+              path: '/',
+            },
+          });
         } else {
-          // Client Serveur (SSR) : createServerClient extrait les cookies de la requête HTTP entrante
-          const requestObj = this.req;
+          // Client Serveur (SSR)
           this.client = createServerClient(url, key, {
+            auth: {
+              persistSession: true,
+              autoRefreshToken: true,
+            },
             cookies: {
-              getAll: () => {
-                let cookieString = '';
-                if (requestObj) {
-                  if (typeof requestObj.headers?.get === 'function') {
-                    cookieString = requestObj.headers.get('cookie') || '';
-                  } else if (requestObj.headers?.cookie) {
-                    cookieString = requestObj.headers.cookie;
-                  }
-                }
-                return parseCookieHeader(cookieString);
-              },
+              getAll: () => [],
               setAll: () => {
-                // Pendant le rendu SSR, le serveur lit les cookies de la requête entrante.
-                // Les modifications/rafraîchissements de cookies sont appliqués côté navigateur post-hydratation.
+                // Pas d'écriture de cookies côté serveur en SSR
               },
             },
           });
@@ -171,21 +164,5 @@ export class SupabaseService {
     } else {
       this.client = null;
     }
-  }
-
-  /**
-   * Permet de configurer manuellement l'URL et la clé anonyme en mémoire si nécessaire.
-   */
-  public updateConfig(config: SupabaseConfig): boolean {
-    if (!config.url || !config.anonKey) return false;
-    this.applyConfig(config.url, config.anonKey);
-    return this._isConfigured();
-  }
-
-  /**
-   * Retourne l'instance du client Supabase
-   */
-  get supabase(): SupabaseClient | null {
-    return this.client;
   }
 }

@@ -67,6 +67,52 @@ function getSupabaseAdmin() {
 }
 
 /**
+ * Middleware Express d'authentification : valide le jeton Bearer
+ * via Supabase Auth admin client et attache l'utilisateur à req.user.
+ */
+export async function requireAuth(req: express.Request, res: express.Response, next: express.NextFunction): Promise<void> {
+  const authHeader = req.headers.authorization;
+  const token = authHeader?.startsWith('Bearer ') ? authHeader.substring(7) : null;
+
+  if (!token) {
+    res.status(401).json({ error: 'Jeton d’authentification manquant dans l’en-tête Authorization' });
+    return;
+  }
+
+  const supabaseAdmin = getSupabaseAdmin();
+  if (!supabaseAdmin) {
+    // Mode dégradé si Supabase non configuré
+    next();
+    return;
+  }
+
+  try {
+    const { data, error } = await supabaseAdmin.auth.getUser(token);
+    if (error || !data.user) {
+      res.status(401).json({ error: 'Jeton d’authentification invalide ou expiré' });
+      return;
+    }
+
+    const appRole = data.user.app_metadata?.['role'];
+    const userRole = data.user.user_metadata?.['role'];
+    const rawRole = (appRole as string) || (userRole as string) || 'employe';
+
+    (req as unknown as Record<string, unknown>)['user'] = {
+      id: data.user.id,
+      email: data.user.email,
+      role: normalizeUserRole(rawRole),
+      app_metadata: data.user.app_metadata,
+      user_metadata: data.user.user_metadata,
+    };
+
+    next();
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : 'Échec de la validation de session';
+    res.status(401).json({ error: message });
+  }
+}
+
+/**
  * Récupération sécurisée de la liste des collaborateurs (/api/system/collaborators).
  * Réservé aux administrateurs.
  */
