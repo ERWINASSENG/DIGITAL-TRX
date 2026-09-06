@@ -51,14 +51,18 @@
         <thead>
           <tr class="border-b-2 border-slate-300 text-slate-600 font-semibold select-none bg-transparent">
             <th scope="col" class="py-3.5 px-3 w-10 text-center">
-              <button
-                type="button"
-                (click)="onToggleSelectAll()"
-                class="font-semibold text-slate-500 hover:text-slate-800 cursor-pointer"
-                title="Tout sélectionner / désélectionner"
-              >
-                Check
-              </button>
+              @if (canEdit()) {
+                <button
+                  type="button"
+                  (click)="onToggleSelectAll()"
+                  class="font-semibold text-slate-500 hover:text-slate-800 cursor-pointer"
+                  title="Tout sélectionner / désélectionner"
+                >
+                  Check
+                </button>
+              } @else {
+                <span class="text-slate-400 font-medium">#</span>
+              }
             </th>
             <th scope="col" class="py-3.5 px-3 font-semibold text-slate-500 whitespace-nowrap w-28">Date</th>
             <th scope="col" class="py-3.5 px-3 font-semibold text-slate-500">Libelle</th>
@@ -229,13 +233,17 @@
             @for (tx of pagedTransactions(); track trackByTxId($index, tx)) {
               <tr class="hover:bg-slate-100/40 transition-colors group">
                 <td class="py-4 px-3 text-center">
-                  <input
-                    type="checkbox"
-                    [checked]="tx.selected"
-                    (change)="onToggleSelect(tx)"
-                    aria-label="Sélectionner la transaction"
-                    class="w-4 h-4 text-blue-600 rounded border-slate-300 focus:ring-blue-500 cursor-pointer"
-                  />
+                  @if (canEdit()) {
+                    <input
+                      type="checkbox"
+                      [checked]="tx.selected"
+                      (change)="onToggleSelect(tx)"
+                      aria-label="Sélectionner la transaction"
+                      class="w-4 h-4 text-blue-600 rounded border-slate-300 focus:ring-blue-500 cursor-pointer"
+                    />
+                  } @else {
+                    <span class="text-slate-300">•</span>
+                  }
                 </td>
                 <td class="py-4 px-3 whitespace-nowrap text-slate-700 font-medium">{{ tx.date }}</td>
                 <td class="py-4 px-3 text-slate-800 font-medium">{{ tx.libelle }}</td>

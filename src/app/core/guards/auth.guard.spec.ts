@@ -53,29 +53,29 @@ describe('AuthGuard', () => {
   const dummyRoute = {} as ActivatedRouteSnapshot;
   const dummyState = { url: '/dashboard' } as RouterStateSnapshot;
 
-  it('devrait autoriser l\'accès si l\'utilisateur est authentifié et actif', () => {
+  it('devrait autoriser l\'accès si l\'utilisateur est authentifié et actif', async () => {
     currentUserSignal.set(mockActiveUser);
     isAuthenticatedSignal.set(true);
 
-    const result = TestBed.runInInjectionContext(() => authGuard(dummyRoute, dummyState));
+    const result = await TestBed.runInInjectionContext(() => authGuard(dummyRoute, dummyState));
     expect(result).toBe(true);
   });
 
-  it('devrait bloquer et déconnecter si l\'utilisateur est connecté mais inactif (isActive = false)', () => {
+  it('devrait bloquer et déconnecter si l\'utilisateur est connecté mais inactif (isActive = false)', async () => {
     currentUserSignal.set(mockInactiveUser);
     isAuthenticatedSignal.set(true);
 
-    const result = TestBed.runInInjectionContext(() => authGuard(dummyRoute, dummyState));
+    const result = await TestBed.runInInjectionContext(() => authGuard(dummyRoute, dummyState));
     expect(result instanceof UrlTree).toBe(true);
     expect(logoutSpy).toHaveBeenCalled();
     expect((result as UrlTree).queryParams['error']).toBe('account_disabled');
   });
 
-  it('devrait rediriger vers /auth/login avec returnUrl si l\'utilisateur n\'est pas authentifié', () => {
+  it('devrait rediriger vers /auth/login avec returnUrl si l\'utilisateur n\'est pas authentifié', async () => {
     currentUserSignal.set(null);
     isAuthenticatedSignal.set(false);
 
-    const result = TestBed.runInInjectionContext(() => authGuard(dummyRoute, dummyState));
+    const result = await TestBed.runInInjectionContext(() => authGuard(dummyRoute, dummyState));
     expect(result instanceof UrlTree).toBe(true);
     expect((result as UrlTree).queryParams['returnUrl']).toBe('/dashboard');
   });

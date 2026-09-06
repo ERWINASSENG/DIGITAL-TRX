@@ -61,8 +61,13 @@ export const routes: Routes = [
         loadComponent: () =>
           import('./features/hr/hr-management').then((m) => m.HrManagement),
         canActivate: [roleGuard],
-        data: { roles: ['admin', 'manager'] },
+        data: { roles: ['admin'] },
         title: 'Transmex - Ressources Humaines',
+      },
+      {
+        path: 'personnel',
+        redirectTo: 'hr',
+        pathMatch: 'full',
       },
       {
         path: 'caisse',

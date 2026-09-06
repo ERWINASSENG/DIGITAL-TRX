@@ -6,9 +6,13 @@ import { AuthService } from '../services/auth.service';
  * Guard fonctionnel vérifiant que l'utilisateur est authentifié et actif.
  * Bloque et déconnecte les utilisateurs inactifs/désactivés, et redirige vers /auth/login.
  */
-export const authGuard: CanActivateFn = (route, state) => {
+export const authGuard: CanActivateFn = async (route, state) => {
   const authService = inject(AuthService);
   const router = inject(Router);
+
+  if (typeof authService.ensureSessionRestored === 'function') {
+    await authService.ensureSessionRestored();
+  }
 
   const user = authService.currentUser();
 

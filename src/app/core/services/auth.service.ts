@@ -7,6 +7,7 @@ import { normalizeUserRole } from '../utils/role.utils';
 
 // Clé résiduelle utilisée uniquement pour la purge défensive
 const LEGACY_SESSION_STORAGE_KEY = 'transmex_auth_session';
+const CACHED_PROFILE_KEY = 'transmex_user_profile';
 
 @Injectable({
   providedIn: 'root',
@@ -16,6 +17,9 @@ export class AuthService {
   private readonly router = inject(Router);
   private readonly platformId = inject(PLATFORM_ID);
   private readonly isBrowser = isPlatformBrowser(this.platformId);
+
+  private sessionRestoredResolver!: () => void;
+  public readonly sessionRestoredPromise: Promise<void>;
 
   /**
    * Helper robuste tolérant à la fois les signaux et les valeurs primitives (notamment dans les mocks de test)
@@ -53,9 +57,63 @@ export class AuthService {
   public readonly isEmploye = computed(() => this._currentUser()?.role === 'employe' || this._currentUser()?.role === 'admin');
 
   constructor() {
+    this.sessionRestoredPromise = new Promise<void>((resolve) => {
+      this.sessionRestoredResolver = resolve;
+    });
+
     this.purgeLegacyStorageTokens();
+    this.restoreCachedProfile();
     this.restoreSession();
     this.listenToAuthChanges();
+  }
+
+  /**
+   * Garantit la fin de la tentative de restauration de session avant toute navigation
+   */
+  public async ensureSessionRestored(): Promise<void> {
+    if (this.sessionRestoredPromise) {
+      await this.sessionRestoredPromise;
+    }
+  }
+
+  /**
+   * Restaure le profil utilisateur immédiatement depuis le localStorage
+   */
+  private restoreCachedProfile(): void {
+    if (this.isBrowser && typeof window !== 'undefined' && window.localStorage) {
+      try {
+        const cached = localStorage.getItem(CACHED_PROFILE_KEY);
+        if (cached) {
+          const profile = JSON.parse(cached) as UserProfile;
+          if (profile && profile.id && profile.isActive) {
+            this._currentUser.set(profile);
+          }
+        }
+      } catch {
+        // Ignorer
+      }
+    }
+  }
+
+  private saveCachedProfile(profile: UserProfile): void {
+    if (this.isBrowser && typeof window !== 'undefined' && window.localStorage) {
+      try {
+        localStorage.setItem(CACHED_PROFILE_KEY, JSON.stringify(profile));
+      } catch {
+        // Ignorer
+      }
+    }
+  }
+
+  private clearCachedProfile(): void {
+    if (this.isBrowser && typeof window !== 'undefined' && window.localStorage) {
+      try {
+        localStorage.removeItem(CACHED_PROFILE_KEY);
+        localStorage.removeItem(LEGACY_SESSION_STORAGE_KEY);
+      } catch {
+        // Ignorer
+      }
+    }
   }
 
   /**
@@ -170,11 +228,11 @@ export class AuthService {
   }
 
   /**
-   * Restaure la session uniquement depuis Supabase en mémoire si disponible.
-   * Ne lit jamais de tokens JWT depuis localStorage (élimination de la vulnérabilité XSS).
+   * Restaure la session depuis Supabase avec synchronisation du profil utilisateur
    */
   public async restoreSession(): Promise<void> {
     if (!this.isBrowser) {
+      this.sessionRestoredResolver?.();
       return;
     }
 
@@ -188,10 +246,15 @@ export class AuthService {
             data.session.access_token,
             data.session.user
           );
+        } else {
+          // Si Supabase ne renvoie aucune session valide et qu'aucun utilisateur n'est en mémoire
+          this.clearLocalSession();
         }
       }
     } catch {
-      // Ignorer si échec de restauration
+      // En cas d'erreur réseau, conserver le cache local s'il existe
+    } finally {
+      this.sessionRestoredResolver?.();
     }
   }
 
@@ -392,38 +455,23 @@ export class AuthService {
   }
 
   /**
-   * Efface la session locale en mémoire vive
+   * Efface la session locale et le cache du profil
    */
   private clearLocalSession(): void {
-    if (this.isBrowser) {
-      try {
-        localStorage.removeItem(LEGACY_SESSION_STORAGE_KEY);
-      } catch {
-        // Ignorer
-      }
-    }
+    this.clearCachedProfile();
     this._currentUser.set(null);
     this._token.set(null);
     this._authError.set(null);
   }
 
   /**
-   * Sauvegarde interne de session strictement en mémoire vive (Signals).
-   * Aucun jeton d'accès n'est stocké dans localStorage (Protection anti-XSS).
+   * Enregistre la session active et met en cache le profil utilisateur
    */
   public setLocalSession(user: UserProfile, token: string): void {
+    this.saveCachedProfile(user);
     this._currentUser.set(user);
     this._token.set(token);
     this._authError.set(null);
-
-    // Purge proactive au cas où une ancienne clé persiste
-    if (this.isBrowser) {
-      try {
-        localStorage.removeItem(LEGACY_SESSION_STORAGE_KEY);
-      } catch {
-        // Ignorer
-      }
-    }
   }
 
   /**

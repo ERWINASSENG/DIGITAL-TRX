@@ -245,22 +245,24 @@
 
         <!-- GAUCHE : Boutons d'Action & Fil d'Ariane -->
         <div class="cp-left flex items-center gap-2 sm:gap-3 shrink-0" id="cp-actions-left">
-          <!-- Bouton Primaire Violet Odoo (#714B67) -->
-          <button
-            type="button"
-            (click)="onNouveau()"
-            class="btn-primary flex items-center gap-1 text-xs font-semibold px-3 py-1.5 rounded transition-all cursor-pointer shadow-xs active:scale-95"
-            id="cp-btn-nouveau">
-            <span>Nouveau</span>
-          </button>
+          @if (canEditCaisse()) {
+            <!-- Bouton Primaire Violet Odoo (#714B67) -->
+            <button
+              type="button"
+              (click)="onNouveau()"
+              class="btn-primary flex items-center gap-1 text-xs font-semibold px-3 py-1.5 rounded transition-all cursor-pointer shadow-xs active:scale-95"
+              id="cp-btn-nouveau">
+              <span>Nouveau</span>
+            </button>
 
-          <!-- Bouton Secondaire Uploader -->
-          <button
-            type="button"
-            class="btn-secondary flex items-center gap-1 text-xs font-medium px-3 py-1.5 rounded transition-all cursor-pointer hover:bg-white/15"
-            id="cp-btn-uploader">
-            <span>Uploader</span>
-          </button>
+            <!-- Bouton Secondaire Uploader -->
+            <button
+              type="button"
+              class="btn-secondary flex items-center gap-1 text-xs font-medium px-3 py-1.5 rounded transition-all cursor-pointer hover:bg-white/15"
+              id="cp-btn-uploader">
+              <span>Uploader</span>
+            </button>
+          }
 
           <!-- Fil d'Ariane / Titre contextuel -->
           <div class="breadcrumbs hidden sm:flex flex-col ml-1 leading-tight" id="cp-breadcrumbs">

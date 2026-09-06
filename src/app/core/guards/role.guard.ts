@@ -8,9 +8,13 @@ import { AuthService } from '../services/auth.service';
  * définis dans le data de la route (ex: data: { roles: ['admin', 'rh'] }).
  * Redirige vers /dashboard en cas de permission insuffisante.
  */
-export const roleGuard: CanActivateFn = (route) => {
+export const roleGuard: CanActivateFn = async (route) => {
   const authService = inject(AuthService);
   const router = inject(Router);
+
+  if (typeof authService.ensureSessionRestored === 'function') {
+    await authService.ensureSessionRestored();
+  }
 
   const requiredRoles = (route.data?.['roles'] as UserRole[]) || [];
 

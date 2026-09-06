@@ -58,6 +58,12 @@ export class MainLayout {
     return url ? url.includes('/caisse') : false;
   });
 
+  // Droit d'édition en caisse (uniquement admin et caissière, pas le manager)
+  public readonly canEditCaisse = computed(() => {
+    const role = this.authService.currentRole();
+    return role === 'admin' || role === 'caissiere';
+  });
+
   // Synchronisation pagination et état avec le module Caisse
   public readonly paginationLabel = computed(() => this.cashierService.paginationLabel());
   public readonly hasPrevPage = computed(() => this.cashierService.hasPrevPage());
@@ -87,7 +93,7 @@ export class MainLayout {
       label: 'Personnel & RH',
       route: '/personnel',
       icon: 'badge',
-      allowedRoles: ['admin', 'manager'],
+      allowedRoles: ['admin'],
     },
     
     {
