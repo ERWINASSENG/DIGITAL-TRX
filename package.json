@@ -4,7 +4,7 @@
   "scripts": {
     "ng": "ng",
     "dev": "cross-env ng serve --port=3000 --host=0.0.0.0 --allowed-hosts=true ${DISABLE_HMR:+--live-reload=false}",
-    "build": "ng build && node -e \"const fs=require('fs'); if(fs.existsSync('dist/browser')){fs.cpSync('dist/browser', 'dist', {recursive: true});} if(!fs.existsSync('dist/index.html') && fs.existsSync('dist/index.csr.html')){fs.copyFileSync('dist/index.csr.html', 'dist/index.html');}\"",
+    "build": "ng build && node -e \"const fs=require('fs'); if(fs.existsSync('dist/browser')){fs.cpSync('dist/browser', 'dist', {recursive: true});} if(!fs.existsSync('dist/index.html') && fs.existsSync('dist/index.csr.html')){fs.copyFileSync('dist/index.csr.html', 'dist/index.html');} if(fs.existsSync('dist/browser') && !fs.existsSync('dist/browser/index.html') && fs.existsSync('dist/index.html')){fs.copyFileSync('dist/index.html', 'dist/browser/index.html');}\"",
     "start": "node dist/server/server.mjs",
     "watch": "ng build --watch --configuration development",
     "test": "ng test",

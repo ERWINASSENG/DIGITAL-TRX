@@ -3,6 +3,7 @@ import {
   Component,
   OnInit,
   computed,
+  effect,
   inject,
   signal,
 } from '@angular/core';
@@ -54,8 +55,8 @@ export class CashierManagement implements OnInit {
   public readonly isLoading = this.cashierService.isLoading;
   public readonly error = this.cashierService.error;
 
-  // Contrôles UI
-  public readonly isAddingRow = signal<boolean>(false);
+  // Contrôles UI synchronisés avec le service
+  public readonly isAddingRow = this.cashierService.isAddingRow;
   public readonly isSubmitting = signal<boolean>(false);
   public readonly isDeleting = signal<boolean>(false);
   public readonly isFilterDropdownOpen = signal<boolean>(false);
@@ -116,6 +117,27 @@ export class CashierManagement implements OnInit {
   public readonly isOperationsType = signal<boolean>(false);
 
   constructor() {
+    // Initialisation automatique du formulaire quand l'ajout est déclenché (ex: via bouton Nouveau du Layout)
+    effect(() => {
+      if (this.cashierService.isAddingRow()) {
+        const today = new Date();
+        const isoDate = today.toISOString().split('T')[0];
+        this.transactionForm.reset({
+          date: isoDate,
+          libelle: '',
+          typeTransaction: 'Administration',
+          typeDescription: '',
+          category: 'sortie',
+          matriculeVehicule: '',
+          employee: '',
+          quantity: null,
+          montant: null,
+        });
+        this.isOperationsType.set(false);
+        this.updateConditionalValidators(false);
+      }
+    });
+
     this.searchControl.valueChanges.subscribe((val) => {
       this.cashierService.setSearchQuery(val);
     });
@@ -224,11 +246,11 @@ export class CashierManagement implements OnInit {
     });
     this.isOperationsType.set(false);
     this.updateConditionalValidators(false);
-    this.isAddingRow.set(true);
+    this.cashierService.startAddTransaction();
   }
 
   public cancelAddInline(): void {
-    this.isAddingRow.set(false);
+    this.cashierService.cancelAddTransaction();
   }
 
   public toggleFilterDropdown(): void {

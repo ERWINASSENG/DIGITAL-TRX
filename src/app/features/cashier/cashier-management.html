@@ -1,5 +1,5 @@
-<div class="cashier-page min-h-screen bg-slate-50/70 p-4 sm:p-6 lg:p-8">
-  <div class="w-full space-y-6">
+<div class="cashier-page w-full py-2">
+  <div class="w-full space-y-4">
 
     <!-- Bouton Retour "Tableau de bord" en haut à gauche (réservé exclusivement au manager et admin) -->
     @if (canViewDashboardButton()) {
@@ -14,163 +14,22 @@
       </div>
     }
 
-    <!-- LIGNE 1 : Barre supérieure (Recherche avec icône filtre à gauche, Actions & Pagination à droite) -->
-    <header class="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-4">
-      <!-- Recherche & Filtre intégré -->
-      <div class="relative w-full sm:w-80 md:w-96">
-        <div class="relative flex items-center">
-          <mat-icon class="absolute left-3 text-slate-400 text-lg w-5 h-5 flex items-center justify-center">search</mat-icon>
-          <input
-            id="cashier-search-input"
-            type="text"
-            [formControl]="searchControl"
-            placeholder="Search"
-            class="w-full pl-10 pr-10 py-2 text-sm bg-white border border-slate-200 rounded-lg shadow-sm text-slate-700 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all"
-          />
-          <button
-            id="cashier-filter-toggle-btn"
-            type="button"
-            (click)="toggleFilterDropdown()"
-            title="Filtrer les transactions"
-            aria-label="Filtrer"
-            class="absolute right-2 p-1 text-slate-400 hover:text-slate-600 rounded transition-colors cursor-pointer"
-          >
-            <mat-icon class="text-lg w-5 h-5 flex items-center justify-center">filter_list</mat-icon>
-          </button>
-        </div>
-
-        <!-- Menu déroulant pour le filtre -->
-        @if (isFilterDropdownOpen()) {
-          <div
-            id="cashier-filter-dropdown"
-            class="absolute left-0 mt-1 w-48 bg-white border border-slate-200 rounded-lg shadow-lg z-20 py-1 text-sm text-slate-700"
-          >
-            <button
-              type="button"
-              (click)="applyCategoryFilter('all')"
-              class="w-full text-left px-4 py-2 hover:bg-slate-50 flex items-center justify-between cursor-pointer"
-              [class.font-semibold]="filterState().categoryFilter === 'all'"
-            >
-              <span>Tous les flux</span>
-              @if (filterState().categoryFilter === 'all') {
-                <mat-icon class="text-sm text-blue-600">check</mat-icon>
-              }
-            </button>
-            <button
-              type="button"
-              (click)="applyCategoryFilter('entree')"
-              class="w-full text-left px-4 py-2 hover:bg-slate-50 flex items-center justify-between text-emerald-600 cursor-pointer"
-              [class.font-semibold]="filterState().categoryFilter === 'entree'"
-            >
-              <span>Entrées (Crédit)</span>
-              @if (filterState().categoryFilter === 'entree') {
-                <mat-icon class="text-sm text-emerald-600">check</mat-icon>
-              }
-            </button>
-            <button
-              type="button"
-              (click)="applyCategoryFilter('sortie')"
-              class="w-full text-left px-4 py-2 hover:bg-slate-50 flex items-center justify-between text-rose-600 cursor-pointer"
-              [class.font-semibold]="filterState().categoryFilter === 'sortie'"
-            >
-              <span>Sorties (Débit)</span>
-              @if (filterState().categoryFilter === 'sortie') {
-                <mat-icon class="text-sm text-rose-600">check</mat-icon>
-              }
-            </button>
-          </div>
-        }
-      </div>
-
-      <!-- Actions de sélection & Pagination compacte ("01-02 / 02  <  >") -->
-      <div class="flex items-center self-end sm:self-auto gap-3 text-sm font-semibold text-slate-800">
+    <!-- Actions de sélection & Solde Actuelle -->
+    <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 pt-1 pb-1">
+      <div class="flex items-center gap-3">
         @if (canEdit() && selectedCount() > 0) {
           <button
             id="cashier-delete-selected-btn"
             type="button"
             (click)="deleteSelectedTransactions()"
             [disabled]="isDeleting()"
-            class="inline-flex items-center gap-1 px-3 py-1.5 bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 rounded-lg text-xs font-medium transition-all cursor-pointer disabled:opacity-50"
+            class="inline-flex items-center gap-1.5 px-3.5 py-1.5 bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 rounded-lg text-xs font-medium transition-all cursor-pointer disabled:opacity-50 shadow-2xs"
           >
             <mat-icon class="text-xs w-4 h-4">delete</mat-icon>
             <span>Supprimer ({{ selectedCount() }})</span>
           </button>
         }
-
-        <button
-          id="cashier-refresh-btn"
-          type="button"
-          (click)="refresh()"
-          [disabled]="isLoading()"
-          title="Actualiser les données"
-          aria-label="Actualiser"
-          class="p-1 text-slate-400 hover:text-slate-700 rounded transition-colors cursor-pointer disabled:opacity-40"
-        >
-          <mat-icon class="text-base w-5 h-5 flex items-center justify-center" [class.animate-spin]="isLoading()">refresh</mat-icon>
-        </button>
-
-        <span id="cashier-pagination-counter" class="tracking-wide select-none">
-          {{ paginationLabel() }}
-        </span>
-        <div class="flex items-center gap-1">
-          <button
-            id="cashier-prev-page-btn"
-            type="button"
-            (click)="prevPage()"
-            [disabled]="!canPrevPage()"
-            aria-label="Page précédente"
-            class="p-1 text-slate-500 hover:text-slate-900 disabled:opacity-30 disabled:hover:text-slate-500 rounded transition-colors cursor-pointer"
-          >
-            <mat-icon class="text-base w-5 h-5 flex items-center justify-center">chevron_left</mat-icon>
-          </button>
-          <button
-            id="cashier-next-page-btn"
-            type="button"
-            (click)="nextPage()"
-            [disabled]="!canNextPage()"
-            aria-label="Page suivante"
-            class="p-1 text-slate-500 hover:text-slate-900 disabled:opacity-30 disabled:hover:text-slate-500 rounded transition-colors cursor-pointer"
-          >
-            <mat-icon class="text-base w-5 h-5 flex items-center justify-center">chevron_right</mat-icon>
-          </button>
-        </div>
       </div>
-    </header>
-
-    <!-- Message d'erreur éventuel sur la page -->
-    @if (error()) {
-      <div class="p-3.5 bg-rose-50 border border-rose-200 rounded-xl text-xs sm:text-sm text-rose-700 flex items-center justify-between shadow-xs">
-        <div class="flex items-center gap-2">
-          <mat-icon class="text-rose-600 text-sm">warning</mat-icon>
-          <span>{{ error() }}</span>
-        </div>
-        <button
-          type="button"
-          (click)="refresh()"
-          class="underline font-semibold hover:text-rose-900 cursor-pointer ml-2"
-        >
-          Réessayer
-        </button>
-      </div>
-    }
-
-    <!-- LIGNE 2 : Bouton "Nouveau" à gauche (si autorisé) et "Solde Actuelle" avec montant vert à droite -->
-    <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 pt-1 pb-1">
-      <!-- Bouton Nouveau (uniquement pour les rôles avec droit d'édition) -->
-      @if (canEdit()) {
-        <button
-          id="cashier-new-btn"
-          type="button"
-          (click)="startAddInline()"
-          [disabled]="isAddingRow()"
-          class="inline-flex items-center gap-2 px-6 py-2.5 bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white text-sm font-medium rounded-lg shadow-sm transition-all focus:outline-none focus:ring-2 focus:ring-blue-500/50 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
-        >
-          <mat-icon class="text-base w-4 h-4 flex items-center justify-center">add</mat-icon>
-          <span>Nouveau</span>
-        </button>
-      } @else {
-        <div></div>
-      }
 
       <!-- Solde Actuelle (Libellé noir + Grand chiffre vert gras) -->
       <div class="flex items-center gap-4 self-end sm:self-auto">
@@ -187,8 +46,8 @@
     </div>
 
     <!-- TABLEAU DE CAISSE PLEINE LARGEUR INTÉGRÉ DIRECTEMENT SUR LA PAGE -->
-    <div class="w-full">
-      <table class="w-full text-left text-xs sm:text-sm border-collapse bg-transparent">
+    <div class="w-full overflow-x-auto">
+      <table class="w-full text-left text-xs sm:text-sm border-collapse bg-transparent min-w-[900px]">
         <thead>
           <tr class="border-b-2 border-slate-300 text-slate-600 font-semibold select-none bg-transparent">
             <th scope="col" class="py-3.5 px-3 w-10 text-center">

@@ -42,6 +42,9 @@ export class CashierService {
     pageSize: 10,
   });
 
+  // Signal pour piloter l'ouverture de la ligne d'ajout inline depuis le Layout
+  public readonly isAddingRow = signal<boolean>(false);
+
   // États exposés
   public readonly isLoading = computed(() => this._isLoading());
   public readonly error = computed(() => this._error());
@@ -60,7 +63,7 @@ export class CashierService {
 
       if (!query) return true;
 
-      const searchableText = `${tx.libelle} ${tx.typeTransaction} ${tx.typeDescription || ''} ${tx.firstName} ${tx.employee || ''}`.toLowerCase();
+      const searchableText = `${tx.libelle} ${tx.typeTransaction} ${tx.typeDescription || ''} ${tx.firstName || ''} ${tx.employee || ''} ${tx.matriculeVehicule || ''}`.toLowerCase();
       return searchableText.includes(query);
     });
   });
@@ -82,6 +85,22 @@ export class CashierService {
 
   // Total des éléments filtrés
   public readonly totalCount = computed(() => this.filteredTransactions().length);
+
+  // Pagination calculée et formatée pour le Control Panel ERP (ex: "1-10 / 25" ou "0 / 0")
+  public readonly paginationLabel = computed(() => {
+    const total = this.totalCount();
+    if (total === 0) return '0 / 0';
+    const { pageIndex, pageSize } = this._filterState();
+    const start = pageIndex * pageSize + 1;
+    const end = Math.min((pageIndex + 1) * pageSize, total);
+    return `${start}-${end} / ${total}`;
+  });
+
+  public readonly hasPrevPage = computed(() => this._filterState().pageIndex > 0);
+  public readonly hasNextPage = computed(() => {
+    const { pageIndex, pageSize } = this._filterState();
+    return (pageIndex + 1) * pageSize < this.totalCount();
+  });
 
   // État du filtre actuel en lecture seule
   public readonly filterState = computed(() => this._filterState());
@@ -150,6 +169,32 @@ export class CashierService {
       this._error.set(message);
     } finally {
       this._isLoading.set(false);
+    }
+  }
+
+  public startAddTransaction(): void {
+    this.isAddingRow.set(true);
+  }
+
+  public cancelAddTransaction(): void {
+    this.isAddingRow.set(false);
+  }
+
+  public prevPage(): void {
+    this._filterState.update((state) => ({
+      ...state,
+      pageIndex: Math.max(0, state.pageIndex - 1),
+    }));
+  }
+
+  public nextPage(): void {
+    const total = this.totalCount();
+    const { pageIndex, pageSize } = this._filterState();
+    if ((pageIndex + 1) * pageSize < total) {
+      this._filterState.update((state) => ({
+        ...state,
+        pageIndex: state.pageIndex + 1,
+      }));
     }
   }
 
