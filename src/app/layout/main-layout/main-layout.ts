@@ -77,17 +77,10 @@ export class MainLayout {
     },
     {
       id: 'caisse',
-      label: 'Caisse & POS',
+      label: 'Caisse',
       route: '/caisse',
       icon: 'point_of_sale',
       allowedRoles: ['admin', 'manager', 'caissiere'],
-    },
-    {
-      id: 'stocks',
-      label: 'Stock & Entrepôt',
-      route: '/stocks',
-      icon: 'inventory_2',
-      allowedRoles: ['admin', 'manager', 'employe'],
     },
     {
       id: 'personnel',
@@ -96,13 +89,7 @@ export class MainLayout {
       icon: 'badge',
       allowedRoles: ['admin', 'manager'],
     },
-    {
-      id: 'rapports',
-      label: 'Rapports & Audit',
-      route: '/rapports',
-      icon: 'analytics',
-      allowedRoles: ['admin', 'manager', 'caissiere'],
-    },
+    
     {
       id: 'administration',
       label: 'Paramètres Système',

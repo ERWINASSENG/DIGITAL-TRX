@@ -159,6 +159,7 @@ export class SupabaseService {
     const isValid = !!(
       url &&
       key &&
+      (url.startsWith('https://') || url.startsWith('http://')) &&
       !url.includes('placeholder') &&
       !url.includes('your-project') &&
       !url.includes('demo-transmex')

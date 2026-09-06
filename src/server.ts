@@ -23,12 +23,33 @@ app.use(express.json());
 
 /**
  * Endpoint sécurisé fournissant l'URL et la clé anonyme publiques Supabase au client web.
+ * Supporte /api/supabase-config et /api/config avec gestion de variabilité de nommage sur Vercel.
  */
-app.get('/api/supabase-config', (_req, res) => {
-  const url = process.env['SUPABASE_URL'] || '';
-  const anonKey = process.env['SUPABASE_ANON_KEY'] || '';
-  res.json({ url, anonKey });
-});
+const getSupabaseConfigHandler = (_req: express.Request, res: express.Response) => {
+  const url =
+    process.env['SUPABASE_URL'] ||
+    process.env['PUBLIC_SUPABASE_URL'] ||
+    process.env['NEXT_PUBLIC_SUPABASE_URL'] ||
+    process.env['VITE_SUPABASE_URL'] ||
+    '';
+  const anonKey =
+    process.env['SUPABASE_ANON_KEY'] ||
+    process.env['PUBLIC_SUPABASE_ANON_KEY'] ||
+    process.env['NEXT_PUBLIC_SUPABASE_ANON_KEY'] ||
+    process.env['VITE_SUPABASE_ANON_KEY'] ||
+    '';
+  res.json({
+    url,
+    anonKey,
+    key: anonKey,
+    supabaseUrl: url,
+    supabaseAnonKey: anonKey,
+    configured: Boolean(url && anonKey),
+  });
+};
+
+app.get('/api/supabase-config', getSupabaseConfigHandler);
+app.get('/api/config', getSupabaseConfigHandler);
 
 /**
  * Helper d'initialisation du client Supabase avec privilèges d'administration.
