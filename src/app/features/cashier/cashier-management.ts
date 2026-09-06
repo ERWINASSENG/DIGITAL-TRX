@@ -40,7 +40,7 @@ export class CashierManagement implements OnInit {
   public readonly error = this.cashierService.error;
 
   // Contrôles UI
-  public readonly isModalOpen = signal<boolean>(false);
+  public readonly isAddingRow = signal<boolean>(false);
   public readonly isSubmitting = signal<boolean>(false);
   public readonly isDeleting = signal<boolean>(false);
   public readonly isFilterDropdownOpen = signal<boolean>(false);
@@ -73,6 +73,10 @@ export class CashierManagement implements OnInit {
 
   // Formulaire de transaction réactif
   public readonly transactionForm = new FormGroup({
+    date: new FormControl<string>('', {
+      nonNullable: true,
+      validators: [Validators.required],
+    }),
     libelle: new FormControl<string>('', {
       nonNullable: true,
       validators: [Validators.required, Validators.minLength(2)],
@@ -124,8 +128,20 @@ export class CashierManagement implements OnInit {
     quantityCtrl?.updateValueAndValidity();
   }
 
+  public readonly todayFormatted = signal<string>('');
+  public readonly todayIsoDate = signal<string>('');
+
   public ngOnInit(): void {
     this.cashierService.loadTransactions();
+    const today = new Date();
+    const isoDate = today.toISOString().split('T')[0];
+    this.todayIsoDate.set(isoDate);
+
+    this.todayFormatted.set(
+      `${String(today.getDate()).padStart(2, '0')}/${String(
+        today.getMonth() + 1
+      ).padStart(2, '0')}/${today.getFullYear()}`
+    );
   }
 
   public refresh(): void {
@@ -174,8 +190,14 @@ export class CashierManagement implements OnInit {
     }
   }
 
-  public openNewModal(): void {
+  /**
+   * Ouvre la ligne d'édition horizontale dans le tableau
+   */
+  public startAddInline(): void {
+    const today = new Date();
+    const isoDate = today.toISOString().split('T')[0];
     this.transactionForm.reset({
+      date: isoDate,
       libelle: '',
       typeTransaction: 'Administration',
       typeDescription: '',
@@ -187,11 +209,11 @@ export class CashierManagement implements OnInit {
     });
     this.isOperationsType.set(false);
     this.updateConditionalValidators(false);
-    this.isModalOpen.set(true);
+    this.isAddingRow.set(true);
   }
 
-  public closeModal(): void {
-    this.isModalOpen.set(false);
+  public cancelAddInline(): void {
+    this.isAddingRow.set(false);
   }
 
   public toggleFilterDropdown(): void {
@@ -203,7 +225,7 @@ export class CashierManagement implements OnInit {
     this.isFilterDropdownOpen.set(false);
   }
 
-  public async submitTransaction(): Promise<void> {
+  public async submitInlineTransaction(): Promise<void> {
     if (this.transactionForm.invalid) {
       this.transactionForm.markAllAsTouched();
       return;
@@ -215,10 +237,16 @@ export class CashierManagement implements OnInit {
     const finalMontant =
       formValues.category === 'sortie' ? -Math.abs(rawMontant) : Math.abs(rawMontant);
 
-    const today = new Date();
-    const formattedDate = `${String(today.getDate()).padStart(2, '0')}/${String(
-      today.getMonth() + 1
-    ).padStart(2, '0')}/${today.getFullYear()}`;
+    // Formate la date sélectionnée (ex: '2026-09-05' -> '05/09/2026')
+    let formattedDate = this.todayFormatted();
+    if (formValues.date) {
+      const parts = formValues.date.split('-');
+      if (parts.length === 3) {
+        formattedDate = `${parts[2]}/${parts[1]}/${parts[0]}`;
+      } else {
+        formattedDate = formValues.date;
+      }
+    }
 
     const success = await this.cashierService.addTransaction({
       date: formattedDate,
@@ -234,7 +262,7 @@ export class CashierManagement implements OnInit {
 
     this.isSubmitting.set(false);
     if (success) {
-      this.closeModal();
+      this.cancelAddInline();
     }
   }
 

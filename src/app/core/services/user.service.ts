@@ -6,6 +6,17 @@ import { generateSecureUUID } from '../utils/crypto.utils';
 
 const USERS_STORAGE_KEY = 'transmex_users_store';
 
+function normalizeRole(r: unknown): UserRole {
+  if (typeof r === 'string') {
+    const clean = r.trim().toLowerCase();
+    if (clean === 'admin') return 'admin';
+    if (clean === 'manager' || clean === 'agent') return 'manager';
+    if (clean === 'caissiere') return 'caissiere';
+    if (clean === 'employe' || clean === 'employee') return 'employe';
+  }
+  return 'manager';
+}
+
 @Injectable({
   providedIn: 'root',
 })
@@ -34,7 +45,9 @@ export class UserService {
   public readonly totalUsersCount = computed(() => this._users().length);
   public readonly activeUsersCount = computed(() => this._users().filter((u) => u.isActive).length);
   public readonly adminCount = computed(() => this._users().filter((u) => u.role === 'admin').length);
-  public readonly rhCount = computed(() => this._users().filter((u) => u.role === 'rh').length);
+  public readonly managerCount = computed(() => this._users().filter((u) => u.role === 'manager').length);
+  public readonly caissiereCount = computed(() => this._users().filter((u) => u.role === 'caissiere').length);
+  public readonly employeCount = computed(() => this._users().filter((u) => u.role === 'employe').length);
 
   constructor() {
     this.loadInitialUsers();
@@ -71,7 +84,7 @@ export class UserService {
                 email: row.email,
                 firstName: row.firstName || 'Utilisateur',
                 lastName: row.lastName || 'Transmex',
-                role: (row.role as UserRole) || 'agent',
+                role: normalizeRole(row.role),
                 department: row.department || 'Services Généraux',
                 phone: row.phone,
                 isActive: row.isActive ?? true,
@@ -107,7 +120,7 @@ export class UserService {
             email: row.email,
             firstName: row.first_name || 'Utilisateur',
             lastName: row.last_name || 'Transmex',
-            role: (row.role as UserRole) || 'agent',
+            role: normalizeRole(row.role),
             department: row.department || 'Services Généraux',
             phone: row.phone,
             isActive: row.is_active ?? true,

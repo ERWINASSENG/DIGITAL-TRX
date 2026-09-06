@@ -41,7 +41,7 @@ export class UsersManagement {
       nonNullable: true,
       validators: [Validators.required, Validators.minLength(2)],
     }),
-    role: new FormControl<UserRole>('agent', {
+    role: new FormControl<UserRole | ''>('', {
       nonNullable: true,
       validators: [Validators.required],
     }),
@@ -72,7 +72,7 @@ export class UsersManagement {
   });
 
   public getRoleDefinition(role: UserRole) {
-    return ROLE_DEFINITIONS[role] || ROLE_DEFINITIONS['agent'];
+    return ROLE_DEFINITIONS[role] || ROLE_DEFINITIONS['employe'];
   }
 
   public openCreateModal(): void {
@@ -81,7 +81,7 @@ export class UsersManagement {
       email: '',
       firstName: '',
       lastName: '',
-      role: 'agent',
+      role: '',
       department: 'Services Transmex',
       phone: '',
       tempPassword: generateSecurePassword(16),
@@ -124,7 +124,7 @@ export class UsersManagement {
       const res = await this.userService.updateUser(editingId, {
         firstName: formValues.firstName,
         lastName: formValues.lastName,
-        role: formValues.role,
+        role: formValues.role ? (formValues.role as UserRole) : undefined,
         department: formValues.department,
         phone: formValues.phone,
       });
@@ -135,11 +135,15 @@ export class UsersManagement {
       }
     } else {
       // Mode Création
+      if (!formValues.role) {
+        return;
+      }
+
       const res = await this.userService.createUser({
         email: formValues.email,
         firstName: formValues.firstName,
         lastName: formValues.lastName,
-        role: formValues.role,
+        role: formValues.role as UserRole,
         department: formValues.department,
         phone: formValues.phone,
         tempPassword: formValues.tempPassword,

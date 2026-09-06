@@ -30,14 +30,14 @@ describe('CashierManagement', () => {
     expect(component.paginationLabel()).toBe('00-00 / 00');
   });
 
-  it('devrait ouvrir et fermer la modale de création', () => {
-    expect(component.isModalOpen()).toBe(false);
+  it('devrait ouvrir et fermer la ligne de saisie horizontale inline', () => {
+    expect(component.isAddingRow()).toBe(false);
 
-    component.openNewModal();
-    expect(component.isModalOpen()).toBe(true);
+    component.startAddInline();
+    expect(component.isAddingRow()).toBe(true);
 
-    component.closeModal();
-    expect(component.isModalOpen()).toBe(false);
+    component.cancelAddInline();
+    expect(component.isAddingRow()).toBe(false);
   });
 
   it('devrait formater correctement les montants monétaires en FCFA', () => {
@@ -47,7 +47,7 @@ describe('CashierManagement', () => {
   });
 
   it('devrait soumettre une transaction valide de type Administration', async () => {
-    component.openNewModal();
+    component.startAddInline();
     component.transactionForm.patchValue({
       libelle: 'Fournitures de bureau',
       category: 'sortie',
@@ -55,15 +55,15 @@ describe('CashierManagement', () => {
       typeTransaction: 'Administration',
     });
 
-    await component.submitTransaction();
+    await component.submitInlineTransaction();
 
-    expect(component.isModalOpen()).toBe(false);
+    expect(component.isAddingRow()).toBe(false);
     expect(service.allTransactions().length).toBe(1);
     expect(component.currentBalance()).toBe(-25000);
   });
 
   it('devrait exiger le matricule et la quantité lorsque le type est Opérations', async () => {
-    component.openNewModal();
+    component.startAddInline();
     component.transactionForm.patchValue({
       libelle: 'Carburant citerne',
       category: 'sortie',
@@ -82,7 +82,7 @@ describe('CashierManagement', () => {
 
     expect(component.transactionForm.valid).toBe(true);
 
-    await component.submitTransaction();
-    expect(component.isModalOpen()).toBe(false);
+    await component.submitInlineTransaction();
+    expect(component.isAddingRow()).toBe(false);
   });
 });

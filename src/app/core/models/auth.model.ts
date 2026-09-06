@@ -1,4 +1,4 @@
-export type UserRole = 'admin' | 'rh' | 'manager_stock' | 'caissier' | 'agent';
+export type UserRole = 'admin' | 'manager' | 'caissiere' | 'employe';
 
 export interface RoleDefinition {
   id: UserRole;
@@ -73,28 +73,22 @@ export const ROLE_DEFINITIONS: Record<UserRole, RoleDefinition> = {
     description: 'Accès complet, gestion des utilisateurs, rôles et sécurité',
     badgeClass: 'bg-indigo-50 text-indigo-700 border-indigo-200',
   },
-  rh: {
-    id: 'rh',
-    label: 'Ressources Humaines',
-    description: 'Gestion des collaborateurs, présences et dossiers RH',
+  manager: {
+    id: 'manager',
+    label: 'Manager',
+    description: 'Supervision des opérations, validation et suivi global',
     badgeClass: 'bg-emerald-50 text-emerald-700 border-emerald-200',
   },
-  manager_stock: {
-    id: 'manager_stock',
-    label: 'Gestionnaire Stock',
-    description: 'Supervision des approvisionnements et entrepôts',
-    badgeClass: 'bg-amber-50 text-amber-700 border-amber-200',
-  },
-  caissier: {
-    id: 'caissier',
-    label: 'Caissier',
-    description: 'Opérations de caisse et encaissements',
+  caissiere: {
+    id: 'caissiere',
+    label: 'Caissière',
+    description: 'Opérations de caisse, encaissements et distribution analytique',
     badgeClass: 'bg-sky-50 text-sky-700 border-sky-200',
   },
-  agent: {
-    id: 'agent',
-    label: 'Agent Opérationnel',
-    description: 'Consultation et suivi des services Transmex',
+  employe: {
+    id: 'employe',
+    label: 'Employé',
+    description: 'Consultation et suivi des activités opérationnelles',
     badgeClass: 'bg-slate-100 text-slate-700 border-slate-200',
   },
 };

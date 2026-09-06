@@ -7,6 +7,21 @@ import { SupabaseService } from './supabase.service';
 // Clé résiduelle utilisée uniquement pour la purge défensive
 const LEGACY_SESSION_STORAGE_KEY = 'transmex_auth_session';
 
+/**
+ * Normalise et assainit le rôle pour s'assurer qu'il s'agit strictement d'un rôle Transmex valide.
+ * Mappe tout résidu 'agent' vers 'manager' ou 'employe' en fonction du contexte.
+ */
+function normalizeUserRole(rawRole: unknown): UserRole {
+  if (typeof rawRole === 'string') {
+    const clean = rawRole.trim().toLowerCase();
+    if (clean === 'admin') return 'admin';
+    if (clean === 'manager' || clean === 'agent') return 'manager';
+    if (clean === 'caissiere') return 'caissiere';
+    if (clean === 'employe' || clean === 'employee') return 'employe';
+  }
+  return 'manager';
+}
+
 @Injectable({
   providedIn: 'root',
 })
@@ -47,7 +62,9 @@ export class AuthService {
   public readonly isAuthenticated = computed(() => this._currentUser() !== null);
   public readonly currentRole = computed<UserRole | null>(() => this._currentUser()?.role ?? null);
   public readonly isAdmin = computed(() => this._currentUser()?.role === 'admin');
-  public readonly isRH = computed(() => this._currentUser()?.role === 'rh' || this._currentUser()?.role === 'admin');
+  public readonly isManager = computed(() => this._currentUser()?.role === 'manager' || this._currentUser()?.role === 'admin');
+  public readonly isCaissiere = computed(() => this._currentUser()?.role === 'caissiere' || this._currentUser()?.role === 'admin');
+  public readonly isEmploye = computed(() => this._currentUser()?.role === 'employe' || this._currentUser()?.role === 'admin');
 
   constructor() {
     this.purgeLegacyStorageTokens();
@@ -116,7 +133,18 @@ export class AuthService {
       const userMetaRole = authUser?.user_metadata?.['role'] as UserRole | undefined;
       const profileRole = profile?.role as UserRole | undefined;
 
-      const resolvedRole: UserRole = profileRole || appRole || userMetaRole || 'agent';
+      // Priorité étanche au rôle app_metadata (inaltérable par l'utilisateur), puis profiles, puis user_metadata
+      const rawRole = appRole || profileRole || userMetaRole;
+      const resolvedRole: UserRole = normalizeUserRole(rawRole);
+
+      // Si la base contient un rôle legacy ou désynchronisé, on met à jour le profil
+      if (profile && profile.role !== resolvedRole) {
+        this.supabaseService.supabase
+          .from('profiles')
+          .update({ role: resolvedRole })
+          .eq('id', userId)
+          .then();
+      }
 
       const userProfile: UserProfile = {
         id: userId,
@@ -298,7 +326,7 @@ export class AuthService {
             data: {
               first_name: profileData.firstName,
               last_name: profileData.lastName,
-              role: profileData.role || 'agent',
+              role: profileData.role || 'employe',
               department: profileData.department || 'Services Généraux',
             },
           },
@@ -313,7 +341,7 @@ export class AuthService {
             email: email.trim().toLowerCase(),
             first_name: profileData.firstName || '',
             last_name: profileData.lastName || '',
-            role: profileData.role || 'agent',
+            role: profileData.role || 'employe',
             department: profileData.department || 'Services Généraux',
             is_active: true,
             created_at: new Date().toISOString(),

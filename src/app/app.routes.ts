@@ -61,7 +61,7 @@ export const routes: Routes = [
         loadComponent: () =>
           import('./features/hr/hr-management').then((m) => m.HrManagement),
         canActivate: [roleGuard],
-        data: { roles: ['admin', 'rh'] },
+        data: { roles: ['admin', 'manager'] },
         title: 'Transmex - Ressources Humaines',
       },
       {
@@ -71,7 +71,7 @@ export const routes: Routes = [
             (m) => m.CashierManagement
           ),
         canActivate: [roleGuard],
-        data: { roles: ['admin', 'caissier'] },
+        data: { roles: ['admin', 'manager', 'caissiere'] },
         title: 'Transmex - Caisse',
       },
       {

@@ -119,6 +119,17 @@ app.get('/api/system/collaborators', async (req, res) => {
 
     const users: Record<string, unknown>[] = [];
 
+    const sanitizeRole = (r: unknown): string => {
+      if (typeof r === 'string') {
+        const clean = r.trim().toLowerCase();
+        if (clean === 'admin') return 'admin';
+        if (clean === 'manager' || clean === 'agent') return 'manager';
+        if (clean === 'caissiere') return 'caissiere';
+        if (clean === 'employe' || clean === 'employee') return 'employe';
+      }
+      return 'manager';
+    };
+
     // Combiner les utilisateurs Auth
     for (const u of authUsers) {
       processedIds.add(u.id);
@@ -128,7 +139,8 @@ app.get('/api/system/collaborators', async (req, res) => {
       const lastName = p?.last_name || (u.user_metadata?.['last_name'] as string) || (u.user_metadata?.['lastName'] as string) || '';
       const email = u.email || p?.email || '';
       const displayName = `${firstName} ${lastName}`.trim() || (u.user_metadata?.['display_name'] as string) || email || 'Utilisateur';
-      const role = p?.role || (u.app_metadata?.['role'] as string) || (u.user_metadata?.['role'] as string) || 'agent';
+      const rawRole = (u.app_metadata?.['role'] as string) || p?.role || (u.user_metadata?.['role'] as string) || 'manager';
+      const role = sanitizeRole(rawRole);
 
       users.push({
         id: u.id,
@@ -157,7 +169,7 @@ app.get('/api/system/collaborators', async (req, res) => {
           firstName: p.first_name || '',
           lastName: p.last_name || '',
           displayName: `${p.first_name || ''} ${p.last_name || ''}`.trim() || p.email || 'Utilisateur',
-          role: p.role || 'agent',
+          role: sanitizeRole(p.role),
           department: p.department || 'Services Généraux',
           phone: p.phone || '',
           isActive: p.is_active ?? true,
@@ -207,12 +219,18 @@ app.post('/api/system/collaborators', async (req, res) => {
     return;
   }
 
+  const validRoles = ['admin', 'manager', 'caissiere', 'employe'];
+  if (!role || !validRoles.includes(role)) {
+    res.status(400).json({ error: 'Le rôle Transmex est obligatoire et doit être défini explicitement (admin, manager, caissiere, employe)' });
+    return;
+  }
+
   const adminClient = getSupabaseAdmin();
 
   // Mode local / démonstration si Supabase n'est pas configuré
   if (!adminClient) {
     const localId = 'usr-' + Date.now();
-    const resolvedRole = role || 'agent';
+    const resolvedRole = role;
     res.status(201).json({
       user: {
         id: localId,
@@ -268,7 +286,7 @@ app.post('/api/system/collaborators', async (req, res) => {
     }
 
     const computedDisplayName = displayName || `${firstName || ''} ${lastName || ''}`.trim() || email;
-    const computedRole = role || 'agent';
+    const computedRole = role;
     const sitesList = Array.isArray(sites) ? sites : (department ? [department] : []);
 
     let authUserId: string | null = null;

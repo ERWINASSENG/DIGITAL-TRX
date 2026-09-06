@@ -25,11 +25,11 @@ export class Dashboard {
       return 'admin';
     }
 
-    if (role === 'manager_stock') {
+    if (role === 'manager') {
       return 'manager';
     }
 
-    // Tous les autres profils (agent, caissier, rh personnel) basculent sur la vue collaborateur
+    // Tous les autres profils (caissiere, employe) basculent sur la vue collaborateur
     return 'employee';
   });
 }
