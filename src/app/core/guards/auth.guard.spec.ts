@@ -11,7 +11,7 @@ describe('AuthGuard', () => {
     email: 'user@transmex.com',
     firstName: 'Jean',
     lastName: 'Dupont',
-    role: 'agent',
+    role: 'employe',
     isActive: true,
     createdAt: new Date().toISOString(),
   };
@@ -21,7 +21,7 @@ describe('AuthGuard', () => {
     email: 'inactive@transmex.com',
     firstName: 'Paul',
     lastName: 'Inactif',
-    role: 'agent',
+    role: 'employe',
     isActive: false,
     createdAt: new Date().toISOString(),
   };

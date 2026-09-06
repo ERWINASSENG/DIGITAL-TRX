@@ -37,7 +37,7 @@ describe('UserService', () => {
         email: 'amina.b@transmex.com',
         firstName: 'Amina',
         lastName: 'Brahimi',
-        role: 'rh',
+        role: 'employe',
         department: 'Ressources Humaines',
         phone: '+213 555 98 76 54',
         isActive: true,
@@ -60,7 +60,7 @@ describe('UserService', () => {
       email: 'nouveau.collaborateur@transmex.com',
       firstName: 'Tarik',
       lastName: 'Haddad',
-      role: 'rh',
+      role: 'employe',
       department: 'Ressources Humaines',
       phone: '+213 555 11 22 33',
       tempPassword: 'Password123!',
@@ -76,7 +76,7 @@ describe('UserService', () => {
       email: 'karim.meziani@transmex.com',
       firstName: 'Doublon',
       lastName: 'Test',
-      role: 'agent',
+      role: 'employe',
     });
 
     expect(result.success).toBe(false);

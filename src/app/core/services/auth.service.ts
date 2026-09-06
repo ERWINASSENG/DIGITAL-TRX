@@ -123,22 +123,9 @@ export class AuthService {
       const rawRole = appRole || profileRole || userMetaRole;
       const resolvedRole: UserRole = normalizeUserRole(rawRole);
 
-      // Si la base contient un rôle legacy ou désynchronisé, on met à jour le profil
+      // Si la base contient un rôle legacy ou désynchronisé, on met à jour le profil de manière asynchrone sécurisée
       if (profile && profile.role !== resolvedRole) {
-        Promise.resolve(
-          this.supabaseService.supabase
-            .from('profiles')
-            .update({ role: resolvedRole })
-            .eq('id', userId)
-        )
-          .then(({ error }) => {
-            if (error) {
-              console.error('Échec de la resynchronisation du rôle de profil:', error.message);
-            }
-          })
-          .catch((err: unknown) => {
-            console.error('Erreur inattendue lors de la resynchronisation du rôle:', err);
-          });
+        this.syncProfileRole(userId, resolvedRole);
       }
 
       const userProfile: UserProfile = {
@@ -160,6 +147,25 @@ export class AuthService {
       return userProfile;
     } catch {
       return null;
+    }
+  }
+
+  /**
+   * Resynchronise le rôle dans public.profiles de manière asynchrone et sécurisée.
+   */
+  private async syncProfileRole(userId: string, resolvedRole: UserRole): Promise<void> {
+    try {
+      if (!this.supabaseService.supabase) return;
+      const { error } = await this.supabaseService.supabase
+        .from('profiles')
+        .update({ role: resolvedRole })
+        .eq('id', userId);
+
+      if (error) {
+        console.error('Échec de la resynchronisation du rôle de profil:', error.message);
+      }
+    } catch (err: unknown) {
+      console.error('Erreur inattendue lors de la resynchronisation du rôle:', err);
     }
   }
 

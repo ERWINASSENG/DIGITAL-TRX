@@ -8,6 +8,7 @@ import express from 'express';
 import {join} from 'node:path';
 import { createClient } from '@supabase/supabase-js';
 import dotenv from 'dotenv';
+import { normalizeUserRole } from './app/core/utils/role.utils';
 
 // Charger les variables d'environnement depuis le fichier `.env` (si présent)
 dotenv.config();
@@ -119,17 +120,6 @@ app.get('/api/system/collaborators', async (req, res) => {
 
     const users: Record<string, unknown>[] = [];
 
-    const sanitizeRole = (r: unknown): string => {
-      if (typeof r === 'string') {
-        const clean = r.trim().toLowerCase();
-        if (clean === 'admin') return 'admin';
-        if (clean === 'manager' || clean === 'agent') return 'manager';
-        if (clean === 'caissiere') return 'caissiere';
-        if (clean === 'employe' || clean === 'employee') return 'employe';
-      }
-      return 'manager';
-    };
-
     // Combiner les utilisateurs Auth
     for (const u of authUsers) {
       processedIds.add(u.id);
@@ -139,8 +129,8 @@ app.get('/api/system/collaborators', async (req, res) => {
       const lastName = p?.last_name || (u.user_metadata?.['last_name'] as string) || (u.user_metadata?.['lastName'] as string) || '';
       const email = u.email || p?.email || '';
       const displayName = `${firstName} ${lastName}`.trim() || (u.user_metadata?.['display_name'] as string) || email || 'Utilisateur';
-      const rawRole = (u.app_metadata?.['role'] as string) || p?.role || (u.user_metadata?.['role'] as string) || 'manager';
-      const role = sanitizeRole(rawRole);
+      const rawRole = (u.app_metadata?.['role'] as string) || p?.role || (u.user_metadata?.['role'] as string) || 'employe';
+      const role = normalizeUserRole(rawRole);
 
       users.push({
         id: u.id,
@@ -169,7 +159,7 @@ app.get('/api/system/collaborators', async (req, res) => {
           firstName: p.first_name || '',
           lastName: p.last_name || '',
           displayName: `${p.first_name || ''} ${p.last_name || ''}`.trim() || p.email || 'Utilisateur',
-          role: sanitizeRole(p.role),
+          role: normalizeUserRole(p.role),
           department: p.department || 'Services Généraux',
           phone: p.phone || '',
           isActive: p.is_active ?? true,
@@ -286,7 +276,7 @@ app.post('/api/system/collaborators', async (req, res) => {
     }
 
     const computedDisplayName = displayName || `${firstName || ''} ${lastName || ''}`.trim() || email;
-    const computedRole = role;
+    const computedRole = normalizeUserRole(role);
     const sitesList = Array.isArray(sites) ? sites : (department ? [department] : []);
 
     let authUserId: string | null = null;
@@ -435,17 +425,26 @@ app.patch('/api/system/collaborators/:id', async (req, res) => {
     };
     if (firstName !== undefined) profileUpdates['first_name'] = firstName;
     if (lastName !== undefined) profileUpdates['last_name'] = lastName;
-    if (role !== undefined) profileUpdates['role'] = role;
+    if (role !== undefined) profileUpdates['role'] = normalizeUserRole(role);
     if (department !== undefined) profileUpdates['department'] = department;
     if (phone !== undefined) profileUpdates['phone'] = phone;
     if (isActive !== undefined) profileUpdates['is_active'] = isActive;
 
-    await adminClient.from('profiles').update(profileUpdates).eq('id', userId);
+    const { error: profileUpdateError } = await adminClient
+      .from('profiles')
+      .update(profileUpdates)
+      .eq('id', userId);
+
+    if (profileUpdateError) {
+      console.error('Échec de la mise à jour public.profiles:', profileUpdateError.message);
+      res.status(500).json({ error: `Erreur mise à jour profil: ${profileUpdateError.message}` });
+      return;
+    }
 
     if (process.env['SUPABASE_SERVICE_ROLE_KEY']) {
       const authUpdates: Record<string, unknown> = {};
       if (role !== undefined) {
-        authUpdates['app_metadata'] = { role };
+        authUpdates['app_metadata'] = { role: normalizeUserRole(role) };
       }
       if (firstName !== undefined || lastName !== undefined) {
         authUpdates['user_metadata'] = {
@@ -455,7 +454,12 @@ app.patch('/api/system/collaborators/:id', async (req, res) => {
         };
       }
       if (Object.keys(authUpdates).length > 0) {
-        await adminClient.auth.admin.updateUserById(userId, authUpdates);
+        const { error: authUpdateError } = await adminClient.auth.admin.updateUserById(userId, authUpdates);
+        if (authUpdateError) {
+          console.error('Échec mise à jour auth.users:', authUpdateError.message);
+          res.status(500).json({ error: `Erreur mise à jour auth: ${authUpdateError.message}` });
+          return;
+        }
       }
     }
 
@@ -489,9 +493,21 @@ app.delete('/api/system/collaborators/:id', async (req, res) => {
 
   try {
     if (process.env['SUPABASE_SERVICE_ROLE_KEY']) {
-      await adminClient.auth.admin.deleteUser(userId);
+      const { error: authDeleteError } = await adminClient.auth.admin.deleteUser(userId);
+      if (authDeleteError) {
+        console.error('Échec suppression auth.users:', authDeleteError.message);
+        res.status(500).json({ error: `Erreur suppression auth: ${authDeleteError.message}` });
+        return;
+      }
     }
-    await adminClient.from('profiles').delete().eq('id', userId);
+
+    const { error: profileDeleteError } = await adminClient.from('profiles').delete().eq('id', userId);
+    if (profileDeleteError) {
+      console.error('Échec suppression public.profiles:', profileDeleteError.message);
+      res.status(500).json({ error: `Erreur suppression profil: ${profileDeleteError.message}` });
+      return;
+    }
+
     res.json({ success: true, message: 'Compte collaborateur supprimé avec succès' });
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : 'Erreur lors de la suppression';

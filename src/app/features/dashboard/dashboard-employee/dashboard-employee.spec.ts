@@ -14,7 +14,7 @@ describe('DashboardEmployee', () => {
     email: 'agent@transimex.cm',
     firstName: 'Jean',
     lastName: 'Kamga',
-    role: 'agent',
+    role: 'employe',
     isActive: true,
     createdAt: new Date().toISOString(),
   };

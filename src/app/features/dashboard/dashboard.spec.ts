@@ -52,13 +52,13 @@ describe('Dashboard Component', () => {
     expect(component.dashboardView()).toBe('admin');
   });
 
-  it('devrait orienter vers la vue manager si le rôle est manager_stock', () => {
+  it('devrait orienter vers la vue manager si le rôle est manager', () => {
     currentUserMock.set({
       id: 'manager-id',
       email: 'manager@transimex.cm',
       firstName: 'Manager',
       lastName: 'Logistique',
-      role: 'manager_stock',
+      role: 'manager',
       isActive: true,
       createdAt: new Date().toISOString(),
     });
@@ -66,13 +66,13 @@ describe('Dashboard Component', () => {
     expect(component.dashboardView()).toBe('manager');
   });
 
-  it('devrait orienter vers la vue employee pour un agent opérationnel', () => {
+  it('devrait orienter vers la vue employee pour un collaborateur employe', () => {
     currentUserMock.set({
-      id: 'agent-id',
-      email: 'agent@transimex.cm',
+      id: 'employe-id',
+      email: 'employe@transimex.cm',
       firstName: 'Agent',
       lastName: 'Maritime',
-      role: 'agent',
+      role: 'employe',
       isActive: true,
       createdAt: new Date().toISOString(),
     });

@@ -70,7 +70,7 @@ describe('DashboardAdmin', () => {
     allTransactions: signal<CashierTransaction[]>(mockTransactions),
     currentBalance: signal<number>(18500000),
     isLoading: signal<boolean>(false),
-    loadTransactions: jasmine.createSpy('loadTransactions').and.returnValue(Promise.resolve()),
+    loadTransactions: vi.fn().mockResolvedValue(undefined),
   };
 
   beforeEach(async () => {
