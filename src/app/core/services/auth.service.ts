@@ -228,15 +228,12 @@ export class AuthService {
   }
 
   /**
-   * Restaure la session depuis Supabase avec synchronisation du profil utilisateur
+   * Restaure la session depuis les cookies Supabase SSR (fonctionne en SSR et sur le navigateur)
    */
   public async restoreSession(): Promise<void> {
-    if (!this.isBrowser) {
-      this.sessionRestoredResolver?.();
-      return;
-    }
-
     try {
+      await this.supabaseService.ensureInitialized();
+
       if (this.checkSupabaseConfigured() && this.supabaseService.supabase) {
         const { data } = await this.supabaseService.supabase.auth.getSession();
         if (data.session?.user) {
@@ -254,7 +251,7 @@ export class AuthService {
         }
       }
     } catch {
-      // En cas d'erreur réseau, conserver le cache local s'il existe
+      // En cas d'erreur de réseau ou de serveur, conserver l'état en mémoire
     } finally {
       this.sessionRestoredResolver?.();
     }

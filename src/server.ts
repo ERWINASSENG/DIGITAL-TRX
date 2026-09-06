@@ -568,7 +568,9 @@ app.use(
 );
 
 /**
- * Handle all other requests by rendering the Angular application.
+ * Traite les requêtes de rendu Angular SSR :
+ * Transmet l'objet Express `req` (contenant les en-têtes et cookies HTTP Supabase `sb-*-auth-token`)
+ * à l'engine `AngularNodeAppEngine` afin que SupabaseService réhydrate la session SSR avant le rendu HTML.
  */
 app.use((req, res, next) => {
   angularApp

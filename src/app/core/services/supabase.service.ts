@@ -1,6 +1,7 @@
-import { Injectable, PLATFORM_ID, inject, signal, makeStateKey, TransferState } from '@angular/core';
+import { Injectable, PLATFORM_ID, inject, signal, makeStateKey, TransferState, REQUEST } from '@angular/core';
 import { isPlatformBrowser } from '@angular/common';
-import { createClient, SupabaseClient } from '@supabase/supabase-js';
+import { createBrowserClient, createServerClient } from '@supabase/ssr';
+import { SupabaseClient } from '@supabase/supabase-js';
 
 export interface SupabaseConfig {
   url: string;
@@ -10,24 +11,17 @@ export interface SupabaseConfig {
 const SUPABASE_CONFIG_KEY = makeStateKey<SupabaseConfig>('supabase.config');
 
 /**
- * Adaptateur de stockage volatile en mémoire vive (InMemoryStorage).
- * Garantit qu'aucun JWT (access_token, refresh_token) n'est écrit sur le disque
- * ou accessible via window.localStorage (Protection contre l'exfiltration XSS).
+ * Utilitaire pour découper un en-tête Cookie HTTP en un tableau { name, value }
  */
-export class InMemoryStorageAdapter {
-  private readonly storage = new Map<string, string>();
-
-  getItem(key: string): string | null {
-    return this.storage.get(key) ?? null;
-  }
-
-  setItem(key: string, value: string): void {
-    this.storage.set(key, value);
-  }
-
-  removeItem(key: string): void {
-    this.storage.delete(key);
-  }
+function parseCookieHeader(cookieHeader: string | null | undefined): { name: string; value: string }[] {
+  if (!cookieHeader) return [];
+  return cookieHeader
+    .split(';')
+    .map((cookie) => {
+      const [name, ...rest] = cookie.trim().split('=');
+      return { name: name.trim(), value: rest.join('=').trim() };
+    })
+    .filter((c) => c.name.length > 0);
 }
 
 @Injectable({
@@ -38,8 +32,8 @@ export class SupabaseService {
   private readonly isBrowser = isPlatformBrowser(this.platformId);
   private readonly transferState = inject(TransferState);
 
-  // Stockage volatile en mémoire vive pour isoler la session Supabase
-  private readonly inMemoryStorage = new InMemoryStorageAdapter();
+  // Injection optionnelle de la requête HTTP entrante côté serveur (SSR)
+  private readonly req = inject(REQUEST, { optional: true }) as { headers?: { get?: (name: string) => string | null; cookie?: string } } | null;
 
   private client: SupabaseClient | null = null;
   private readonly _isConfigured = signal<boolean>(false);
@@ -51,29 +45,13 @@ export class SupabaseService {
   private initPromise: Promise<boolean> | null = null;
 
   constructor() {
-    this.purgeInsecureStorageTokens();
     this.initSupabaseClient();
   }
 
   /**
-   * Purge défensive des clés obsolètes tout en conservant la session Supabase
-   */
-  private purgeInsecureStorageTokens(): void {
-    if (!this.isBrowser || typeof window === 'undefined' || !window.localStorage) {
-      return;
-    }
-
-    try {
-      localStorage.removeItem('transmex_auth_session');
-    } catch {
-      // Ignorer si localStorage est restreint
-    }
-  }
-
-  /**
-   * Initialise le client Supabase :
-   * 1. Côté serveur : lit process.env et stocke dans TransferState
-   * 2. Côté client : lit d'abord le TransferState (instantané et sans stockage local)
+   * Initialise le client Supabase compatible SSR avec cookies HTTP :
+   * 1. Côté serveur (SSR) : lit process.env, utilise createServerClient avec extraction des cookies de la requête HTTP.
+   * 2. Côté client : lit d'abord TransferState, utilise createBrowserClient (synchro document.cookie).
    */
   public initSupabaseClient(): void {
     let url = '';
@@ -90,7 +68,7 @@ export class SupabaseService {
         this.transferState.set(SUPABASE_CONFIG_KEY, { url, anonKey: key });
       }
     } else {
-      // Côté navigateur : récupération immédiate depuis le TransferState injecté par le serveur
+      // Côté navigateur : récupération immédiate depuis le TransferState
       const transferredConfig = this.transferState.get(SUPABASE_CONFIG_KEY, null);
       if (transferredConfig && transferredConfig.url && transferredConfig.anonKey) {
         url = transferredConfig.url;
@@ -100,8 +78,8 @@ export class SupabaseService {
 
     this.applyConfig(url, key);
 
-    // Si côté navigateur la configuration n'était pas dans le TransferState (ex: CSR direct ou rechargement),
-    // interroger l'endpoint /api/supabase-config en tâche de fond.
+    // Si côté navigateur la configuration n'était pas dans le TransferState,
+    // interroger l'endpoint /api/supabase-config.
     if (this.isBrowser && !this._isConfigured()) {
       this.ensureInitialized();
     }
@@ -160,13 +138,32 @@ export class SupabaseService {
 
     if (isValid) {
       try {
-        this.client = createClient(url, key, {
-          auth: {
-            persistSession: true,
-            autoRefreshToken: true,
-            detectSessionInUrl: true,
-          },
-        });
+        if (this.isBrowser) {
+          // Client Navigateur : createBrowserClient gère automatiquement document.cookie
+          this.client = createBrowserClient(url, key);
+        } else {
+          // Client Serveur (SSR) : createServerClient extrait les cookies de la requête HTTP entrante
+          const requestObj = this.req;
+          this.client = createServerClient(url, key, {
+            cookies: {
+              getAll: () => {
+                let cookieString = '';
+                if (requestObj) {
+                  if (typeof requestObj.headers?.get === 'function') {
+                    cookieString = requestObj.headers.get('cookie') || '';
+                  } else if (requestObj.headers?.cookie) {
+                    cookieString = requestObj.headers.cookie;
+                  }
+                }
+                return parseCookieHeader(cookieString);
+              },
+              setAll: () => {
+                // Pendant le rendu SSR, le serveur lit les cookies de la requête entrante.
+                // Les modifications/rafraîchissements de cookies sont appliqués côté navigateur post-hydratation.
+              },
+            },
+          });
+        }
       } catch {
         this.client = null;
         this._isConfigured.set(false);
@@ -192,4 +189,3 @@ export class SupabaseService {
     return this.client;
   }
 }
-
