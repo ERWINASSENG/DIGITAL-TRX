@@ -240,14 +240,16 @@ export class AuthService {
       if (this.checkSupabaseConfigured() && this.supabaseService.supabase) {
         const { data } = await this.supabaseService.supabase.auth.getSession();
         if (data.session?.user) {
-          await this.loadUserProfileFromSupabase(
+          const profile = await this.loadUserProfileFromSupabase(
             data.session.user.id,
             data.session.user.email || '',
             data.session.access_token,
             data.session.user
           );
-        } else {
-          // Si Supabase ne renvoie aucune session valide et qu'aucun utilisateur n'est en mémoire
+          if (profile && !profile.isActive) {
+            this.clearLocalSession();
+          }
+        } else if (!this._currentUser()) {
           this.clearLocalSession();
         }
       }

@@ -56,8 +56,7 @@ export class SupabaseService {
   }
 
   /**
-   * Purge défensive : supprime tout token JWT résiduel qui aurait pu être
-   * enregistré antérieurement dans le localStorage.
+   * Purge défensive des clés obsolètes tout en conservant la session Supabase
    */
   private purgeInsecureStorageTokens(): void {
     if (!this.isBrowser || typeof window === 'undefined' || !window.localStorage) {
@@ -65,16 +64,7 @@ export class SupabaseService {
     }
 
     try {
-      const keysToRemove: string[] = [];
-      for (let i = 0; i < localStorage.length; i++) {
-        const key = localStorage.key(i);
-        if (key && (key.startsWith('sb-') || key.includes('supabase') || key.includes('transmex_session'))) {
-          keysToRemove.push(key);
-        }
-      }
-      for (const k of keysToRemove) {
-        localStorage.removeItem(k);
-      }
+      localStorage.removeItem('transmex_auth_session');
     } catch {
       // Ignorer si localStorage est restreint
     }
@@ -175,7 +165,6 @@ export class SupabaseService {
             persistSession: true,
             autoRefreshToken: true,
             detectSessionInUrl: true,
-            storage: this.inMemoryStorage,
           },
         });
       } catch {
