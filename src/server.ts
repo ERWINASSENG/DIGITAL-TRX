@@ -37,7 +37,7 @@ const getSupabaseConfigHandler = (_req: express.Request, res: express.Response) 
     process.env['PUBLIC_SUPABASE_ANON_KEY'] ||
     process.env['NEXT_PUBLIC_SUPABASE_ANON_KEY'] ||
     process.env['VITE_SUPABASE_ANON_KEY'] ||
-    '';
+    'sb_publishable_6nhsGRkv_zL7Hdjjyc3KgA_BC72nlM2';
   res.json({
     url,
     anonKey,
@@ -56,7 +56,7 @@ app.get('/api/config', getSupabaseConfigHandler);
  */
 function getSupabaseAdmin() {
   const url = process.env['SUPABASE_URL'] || '';
-  const serviceKey = process.env['SUPABASE_SERVICE_ROLE_KEY'] || process.env['SUPABASE_ANON_KEY'] || '';
+  const serviceKey = process.env['SUPABASE_SERVICE_ROLE_KEY'] || process.env['SUPABASE_ANON_KEY'] || 'sb_publishable_6nhsGRkv_zL7Hdjjyc3KgA_BC72nlM2';
   if (!url || !serviceKey) return null;
   return createClient(url, serviceKey, {
     auth: {
